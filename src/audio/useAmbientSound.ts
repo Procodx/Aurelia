@@ -27,6 +27,7 @@ type AmbientNodes = {
 export function useAmbientSound() {
   const nodesRef = useRef<AmbientNodes | null>(null);
   const backdropSrcRef = useRef<string | null>(null);
+  const pauseTimeoutRef = useRef<number | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
 
   const resolveBackdropTrack = useCallback(async () => {
@@ -99,6 +100,11 @@ export function useAmbientSound() {
   const start = useCallback(async () => {
     const trackSrc = await resolveBackdropTrack();
     const nodes = nodesRef.current ?? createNodes(trackSrc);
+    if (pauseTimeoutRef.current !== null) {
+      window.clearTimeout(pauseTimeoutRef.current);
+      pauseTimeoutRef.current = null;
+    }
+
     await nodes.context.resume();
 
     if (!nodes.track.src.endsWith(trackSrc)) {
@@ -127,9 +133,14 @@ export function useAmbientSound() {
       0.0001,
       nodes.context.currentTime + 1.2,
     );
-    window.setTimeout(() => {
+    if (pauseTimeoutRef.current !== null) {
+      window.clearTimeout(pauseTimeoutRef.current);
+    }
+
+    pauseTimeoutRef.current = window.setTimeout(() => {
       nodes.track.pause();
       void nodes.context.suspend();
+      pauseTimeoutRef.current = null;
     }, 1300);
     setIsPlaying(false);
   }, []);
