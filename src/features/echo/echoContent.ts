@@ -14,18 +14,23 @@ export type PuzzleImage = {
 
 export const puzzleImages: PuzzleImage[] = [
   {
-    id: "soft-star-portrait",
-    title: "Soft Star Portrait",
-    source: "/memories/aurelia-portrait.jpg",
+    id: "two-hearts-standing",
+    title: "Two Hearts Standing",
+    source: "/puzzles/puzzle-2.png",
   },
   {
-    id: "first-spark-chat",
-    title: "First Spark",
-    source: "/memories/first-conversation-chat.png",
+    id: "softest-smile",
+    title: "Softest Smile",
+    source: "/puzzles/puzzle-3.jpg",
   },
   {
-    id: "almost-chill-chat",
-    title: "Almost-Chill Moment",
-    source: "/memories/first-laugh-chat.png",
+    id: "heart-filter-queen",
+    title: "Heart Filter Queen",
+    source: "/puzzles/puzzle-4.jpg",
+  },
+  {
+    id: "eyes-never-lie",
+    title: "Eyes Never Lie",
+    source: "/puzzles/puzzle-5.jpg",
   },
 ];
