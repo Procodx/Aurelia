@@ -1,0 +1,22 @@
+{
+  "compliments": [
+    {
+      "id": "compliment-1",
+      "title": "Compliment 1",
+      "fileName": "compliment-1.png",
+      "source": "/memories/compliment-1.png"
+    },
+    {
+      "id": "compliment-2",
+      "title": "Compliment 2",
+      "fileName": "compliment-2.png",
+      "source": "/memories/compliment-2.png"
+    },
+    {
+      "id": "compliment-3",
+      "title": "Compliment 3",
+      "fileName": "compliment-3.png",
+      "source": "/memories/compliment-3.png"
+    }
+  ]
+}

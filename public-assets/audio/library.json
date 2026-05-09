@@ -1,0 +1,54 @@
+{
+  "generatedAt": "2026-05-09T18:50:08.080Z",
+  "tracks": [
+    {
+      "id": "alex-warren-carry-you-home-official-video",
+      "title": "Carry You Home (Official Video)",
+      "artist": "Alex Warren",
+      "source": "/audio/Alex%20Warren%20-%20Carry%20You%20Home%20(Official%20Video).mp3",
+      "fileName": "Alex Warren - Carry You Home (Official Video).mp3"
+    },
+    {
+      "id": "alex-warren-ordinary-lyrics",
+      "title": "Ordinary (Lyrics)",
+      "artist": "Alex Warren",
+      "source": "/audio/Alex%20Warren%20-%20Ordinary%20(Lyrics).mp3",
+      "fileName": "Alex Warren - Ordinary (Lyrics).mp3"
+    },
+    {
+      "id": "benson-boone-beautiful-things-official-music-video",
+      "title": "Beautiful Things (Official Music Video)",
+      "artist": "Benson Boone",
+      "source": "/audio/Benson%20Boone%20-%20Beautiful%20Things%20(Official%20Music%20Video).mp3",
+      "fileName": "Benson Boone - Beautiful Things (Official Music Video).mp3"
+    },
+    {
+      "id": "jvke-her-official-lyric-video",
+      "title": "Her (Official Lyric Video)",
+      "artist": "JVKE",
+      "source": "/audio/JVKE%20-%20her%20(official%20lyric%20video).mp3",
+      "fileName": "JVKE - her (official lyric video).mp3"
+    },
+    {
+      "id": "keenan-te-rest-of-my-life-official-lyric-video",
+      "title": "Rest Of My Life (Official Lyric Video)",
+      "artist": "Keenan Te",
+      "source": "/audio/Keenan%20Te%20-%20Rest%20of%20My%20Life%20(Official%20Lyric%20Video).mp3",
+      "fileName": "Keenan Te - Rest of My Life (Official Lyric Video).mp3"
+    },
+    {
+      "id": "myles-smith-stargazing",
+      "title": "Stargazing",
+      "artist": "Myles Smith",
+      "source": "/audio/Myles%20Smith%20-%20Stargazing.mp3",
+      "fileName": "Myles Smith - Stargazing.mp3"
+    },
+    {
+      "id": "sir-henry-fantasy-1",
+      "title": "Sir Henry Fantasy 1",
+      "artist": "Aurelia's Echo Moon",
+      "source": "/audio/sir-henry-fantasy-1.mp3",
+      "fileName": "sir-henry-fantasy-1.mp3"
+    }
+  ]
+}
