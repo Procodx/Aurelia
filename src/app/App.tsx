@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { LandingScene } from "../scenes/landing/LandingScene";
 import { UniverseScene } from "../scenes/universe/UniverseScene";
 import { StardustCursor } from "../features/easter-eggs/StardustCursor";
@@ -10,7 +10,13 @@ export default function App() {
   const scene = useExperienceStore((state) => state.scene);
   const activeObjectId = useExperienceStore((state) => state.activeObjectId);
   const enterUniverse = useExperienceStore((state) => state.enterUniverse);
-  const { isPlaying, start, toggle } = useAmbientSound();
+  const { isPlaying, start, pause, toggle } = useAmbientSound();
+  const isPlayingRef = useRef(isPlaying);
+  const shouldResumeBackdropRef = useRef(false);
+
+  useEffect(() => {
+    isPlayingRef.current = isPlaying;
+  }, [isPlaying]);
 
   const handleEnter = () => {
     void start();
@@ -34,6 +40,32 @@ export default function App() {
       window.removeEventListener("keydown", startOnInteraction);
     };
   }, [isPlaying, scene, start]);
+
+  useEffect(() => {
+    const pauseBackdropForForegroundAudio = () => {
+      shouldResumeBackdropRef.current = shouldResumeBackdropRef.current || isPlayingRef.current;
+      if (isPlayingRef.current) {
+        pause();
+      }
+    };
+
+    const resumeBackdropAfterForegroundAudio = () => {
+      if (!shouldResumeBackdropRef.current) {
+        return;
+      }
+
+      shouldResumeBackdropRef.current = false;
+      void start();
+    };
+
+    window.addEventListener("aurelia:backdrop-pause", pauseBackdropForForegroundAudio);
+    window.addEventListener("aurelia:backdrop-resume", resumeBackdropAfterForegroundAudio);
+
+    return () => {
+      window.removeEventListener("aurelia:backdrop-pause", pauseBackdropForForegroundAudio);
+      window.removeEventListener("aurelia:backdrop-resume", resumeBackdropAfterForegroundAudio);
+    };
+  }, [pause, start]);
 
   return (
     <main className="experience-shell">

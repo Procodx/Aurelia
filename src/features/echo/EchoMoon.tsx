@@ -19,6 +19,14 @@ type AudioLibrary = {
   tracks?: EchoTrack[];
 };
 
+function pauseBackdropMusic() {
+  window.dispatchEvent(new Event("aurelia:backdrop-pause"));
+}
+
+function resumeBackdropMusic() {
+  window.dispatchEvent(new Event("aurelia:backdrop-resume"));
+}
+
 const gridSize = 3;
 const tileCount = gridSize * gridSize;
 
@@ -169,11 +177,14 @@ export function EchoMoon({ onClose }: EchoMoonProps) {
   useEffect(() => {
     setTrackError("");
     setIsTrackPlaying(false);
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-    }
   }, [activeTrackId]);
+
+  useEffect(() => {
+    return () => {
+      audioRef.current?.pause();
+      resumeBackdropMusic();
+    };
+  }, []);
 
   const playTrack = async (track: EchoTrack) => {
     const audio = audioRef.current;
@@ -185,12 +196,14 @@ export function EchoMoon({ onClose }: EchoMoonProps) {
     setTrackError("");
     audio.src = track.source;
     audio.load();
+    pauseBackdropMusic();
     window.setTimeout(() => {
       void audio.play().then(
         () => setIsTrackPlaying(true),
         () => {
           setIsTrackPlaying(false);
           setTrackError(`I found "${track.fileName ?? track.title}", but the browser could not play it.`);
+          resumeBackdropMusic();
         },
       );
     }, 0);
@@ -205,12 +218,20 @@ export function EchoMoon({ onClose }: EchoMoonProps) {
     if (isTrackPlaying) {
       audio.pause();
       setIsTrackPlaying(false);
+      resumeBackdropMusic();
       return;
     }
 
     if (activeTrack) {
       await playTrack(activeTrack);
     }
+  };
+
+  const leaveAudioRoom = () => {
+    audioRef.current?.pause();
+    setIsTrackPlaying(false);
+    resumeBackdropMusic();
+    setMode("choose");
   };
 
   const resetPuzzle = () => {
@@ -311,13 +332,20 @@ export function EchoMoon({ onClose }: EchoMoonProps) {
 
         {mode === "audio" && (
           <section className="echo-audio-room">
-            <button className="echo-moon__back" type="button" onClick={() => setMode("choose")}>
+            <button className="echo-moon__back" type="button" onClick={leaveAudioRoom}>
               Back
             </button>
             <div className="echo-player">
               <p>{activeTrack?.artist ?? "Echo Moon Library"}</p>
               <h3>{activeTrack?.title ?? "No audio yet"}</h3>
-              <audio ref={audioRef} src={activeTrack?.source} onEnded={() => setIsTrackPlaying(false)} />
+              <audio
+                ref={audioRef}
+                src={activeTrack?.source}
+                onEnded={() => {
+                  setIsTrackPlaying(false);
+                  resumeBackdropMusic();
+                }}
+              />
               <button type="button" onClick={toggleTrack} disabled={!activeTrack}>
                 {isTrackPlaying ? "Pause" : "Play"}
               </button>
