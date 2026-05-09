@@ -1,4 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
+import { useEffect } from "react";
 import { LandingScene } from "../scenes/landing/LandingScene";
 import { UniverseScene } from "../scenes/universe/UniverseScene";
 import { StardustCursor } from "../features/easter-eggs/StardustCursor";
@@ -15,6 +16,24 @@ export default function App() {
     void start();
     enterUniverse();
   };
+
+  useEffect(() => {
+    if (scene !== "universe" || isPlaying) {
+      return;
+    }
+
+    const startOnInteraction = () => {
+      void start();
+    };
+
+    window.addEventListener("pointerdown", startOnInteraction, { once: true });
+    window.addEventListener("keydown", startOnInteraction, { once: true });
+
+    return () => {
+      window.removeEventListener("pointerdown", startOnInteraction);
+      window.removeEventListener("keydown", startOnInteraction);
+    };
+  }, [isPlaying, scene, start]);
 
   return (
     <main className="experience-shell">
