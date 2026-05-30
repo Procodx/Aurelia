@@ -34,7 +34,7 @@ export function ThreeStarfield({
     const pointer = new THREE.Vector2(0, 0);
 
     camera.position.z = intensity === "awake" ? 520 : 680;
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, intensity === "awake" ? 1.5 : 1.75));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, intensity === "awake" ? 1.25 : 1.5));
 
     const positions = new Float32Array(density * 3);
     const colors = new Float32Array(density * 3);

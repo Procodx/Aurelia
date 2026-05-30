@@ -303,12 +303,12 @@ export function UniverseScene() {
       onPointerCancel={handlePointerUp}
       onWheel={handleWheel}
     >
-      <ThreeStarfield className="three-starfield universe__starfield" intensity="awake" density={1700} depth={1100} />
+      <ThreeStarfield className="three-starfield universe__starfield" intensity="awake" density={1200} depth={980} />
       <motion.div
         className="universe__arrival-bloom"
-        initial={{ opacity: 0.98, scale: 0.16, filter: "blur(0px)" }}
-        animate={{ opacity: 0, scale: 3.8, filter: "blur(28px)" }}
-        transition={{ duration: 2.6, ease: [0.76, 0, 0.24, 1] }}
+        initial={{ opacity: 0.9, scale: 0.16 }}
+        animate={{ opacity: 0, scale: 3.2 }}
+        transition={{ duration: 1.8, ease: [0.76, 0, 0.24, 1] }}
       />
       <motion.div
         className="universe__arrival-dust"
@@ -484,10 +484,10 @@ export function UniverseScene() {
           activeObject.id !== "heart-chamber" && (
           <motion.aside
             className="revelation"
-            initial={{ opacity: 0, y: 34, scale: 0.96, filter: "blur(12px)" }}
-            animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
-            exit={{ opacity: 0, y: 24, scale: 0.98, filter: "blur(10px)" }}
-            transition={{ duration: 0.85, ease: [0.16, 1, 0.3, 1] }}
+            initial={{ opacity: 0, y: 28, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 18, scale: 0.99 }}
+            transition={{ duration: 0.56, ease: [0.16, 1, 0.3, 1] }}
           >
             <button className="revelation__close" type="button" onClick={clearFocus} aria-label="Return to universe">
               Return

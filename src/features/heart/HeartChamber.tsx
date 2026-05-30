@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { HeartDoorScene } from "./HeartDoorScene";
 import { heartLetters } from "./heartLetters";
 
 type HeartChamberProps = {
@@ -15,6 +16,7 @@ export function HeartChamber({ onClose }: HeartChamberProps) {
     () => heartLetters.find((letter) => letter.id === activeLetterId) ?? heartLetters[0],
     [activeLetterId],
   );
+  const splineSceneUrl = import.meta.env.VITE_HEART_CHAMBER_SPLINE_SCENE;
 
   useEffect(() => {
     if (!isOpen) {
@@ -47,10 +49,10 @@ export function HeartChamber({ onClose }: HeartChamberProps) {
   return (
     <motion.aside
       className={isOpen ? "heart-chamber is-open" : "heart-chamber"}
-      initial={{ opacity: 0, scale: 0.92, filter: "blur(20px)" }}
-      animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-      exit={{ opacity: 0, scale: 0.96, filter: "blur(16px)" }}
-      transition={{ duration: 0.95, ease: [0.16, 1, 0.3, 1] }}
+      initial={{ opacity: 0, scale: 0.97 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.98 }}
+      transition={{ duration: 0.62, ease: [0.16, 1, 0.3, 1] }}
       aria-label="The Heart Chamber"
     >
       <button className="heart-chamber__close" type="button" onClick={onClose} aria-label="Return to universe">
@@ -60,24 +62,16 @@ export function HeartChamber({ onClose }: HeartChamberProps) {
       <div className="heart-chamber__stars" aria-hidden="true" />
 
       <section className="heart-chamber__threshold">
-        <motion.div
-          className="heart-door"
-          animate={isOpen ? { scale: 1.04 } : { scale: [1, 1.025, 1] }}
-          transition={isOpen ? { duration: 1 } : { duration: 3.8, repeat: Infinity, ease: "easeInOut" }}
-        >
-          <span className="heart-door__ring" />
-          <span className="heart-door__gate" />
-          <span className="heart-door__light" />
-        </motion.div>
+        <HeartDoorScene isOpen={isOpen} sceneUrl={splineSceneUrl} />
 
         <AnimatePresence>
           {!isOpen && (
             <motion.div
               className="heart-chamber__intro"
-              initial={{ opacity: 0, y: 22, filter: "blur(10px)" }}
-              animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-              exit={{ opacity: 0, y: -18, filter: "blur(12px)" }}
-              transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -14 }}
+              transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
             >
               <p>The Heart Chamber</p>
               <h2>Only the Queen may enter.</h2>
@@ -96,10 +90,10 @@ export function HeartChamber({ onClose }: HeartChamberProps) {
         {isOpen && (
           <motion.section
             className="heart-chamber__inside"
-            initial={{ opacity: 0, y: 32, filter: "blur(16px)" }}
-            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-            exit={{ opacity: 0, y: 24, filter: "blur(12px)" }}
-            transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+            initial={{ opacity: 0, y: 26 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 18 }}
+            transition={{ duration: 0.56, ease: [0.16, 1, 0.3, 1] }}
           >
             <div className="heart-chamber__inside-header">
               <p>Letters from Sir Henry</p>

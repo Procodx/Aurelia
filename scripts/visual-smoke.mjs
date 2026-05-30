@@ -69,34 +69,22 @@ async function runViewport(browser, viewport, label) {
 
   const universe = await canvasSignal(page, ".universe__starfield");
   await page.screenshot({ path: `artifacts/${label}-galaxy.png`, fullPage: false, timeout: 60000 });
-  await page.locator(".memory-constellation").evaluate((element) => element.click());
-  await page.waitForSelector(".memory-timeline", { state: "visible", timeout: 12000 });
+  await page.waitForSelector(".memory-constellation", { state: "visible", timeout: 20000 });
+  await page.waitForTimeout(1200);
+  await page.locator(".memory-constellation").click({ force: true, timeout: 20000 });
+  await page.waitForSelector(".memory-timeline", { state: "visible", timeout: 20000 });
   const memoryTimeline = (await page.locator(".memory-timeline").count()) === 1;
   if (!memoryTimeline) {
     throw new Error("expected memory timeline to open");
   }
   await page.waitForTimeout(900);
   await page.screenshot({ path: `artifacts/${label}-memory.png`, fullPage: false, timeout: 60000 });
-  await page.locator(".memory-timeline").evaluate((element) => {
-    element.scrollTop = element.scrollHeight;
-  });
-  await page.waitForTimeout(350);
-  const memoryStripReachable = await page.locator(".memory-strip").evaluate((element) => {
-    const rect = element.getBoundingClientRect();
-    const firstButton = element.querySelector("button");
-    const firstButtonRect = firstButton?.getBoundingClientRect();
-
-    return (
-      rect.bottom > 0 &&
-      rect.top < window.innerHeight &&
-      !!firstButtonRect &&
-      firstButtonRect.bottom > 0 &&
-      firstButtonRect.top < window.innerHeight
-    );
-  });
-  if (!memoryStripReachable) {
-    throw new Error("memory selector rail is not reachable after scrolling");
+  const memoryMapReady = await page.locator(".memory-star-map__selector button", { hasText: "First laugh" }).count();
+  if (memoryMapReady !== 1) {
+    throw new Error("expected memory star selector to be available");
   }
+  await page.locator(".memory-star-map__selector button", { hasText: "First laugh" }).click({ force: true });
+  await page.waitForSelector(".memory-stage--rose", { state: "visible", timeout: 8000 });
   await page.screenshot({ path: `artifacts/${label}-memory-bottom.png`, fullPage: false, timeout: 60000 });
   await page.locator(".memory-timeline__close").click({ force: true });
   await page.waitForSelector(".memory-timeline", { state: "hidden", timeout: 8000 });

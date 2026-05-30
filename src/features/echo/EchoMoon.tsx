@@ -299,10 +299,10 @@ export function EchoMoon({ onClose }: EchoMoonProps) {
   return (
     <motion.aside
       className="echo-moon-panel"
-      initial={{ opacity: 0, y: 34, scale: 0.96, filter: "blur(14px)" }}
-      animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
-      exit={{ opacity: 0, y: 24, scale: 0.98, filter: "blur(10px)" }}
-      transition={{ duration: 0.85, ease: [0.16, 1, 0.3, 1] }}
+      initial={{ opacity: 0, y: 28, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: 18, scale: 0.99 }}
+      transition={{ duration: 0.58, ease: [0.16, 1, 0.3, 1] }}
       aria-label="Echo Moon"
     >
       <button className="echo-moon__close" type="button" onClick={onClose} aria-label="Return to universe">

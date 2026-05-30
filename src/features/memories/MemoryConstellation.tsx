@@ -31,8 +31,8 @@ export function MemoryConstellation({ name, whisper, delay, drift, onOpen }: Mem
       onBlur={() => setIsAwake(false)}
       onPointerEnter={() => setIsAwake(true)}
       onPointerLeave={() => setIsAwake(false)}
-      initial={{ opacity: 0, scale: 0.24, y: 72, filter: "blur(18px)" }}
-      animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
+      initial={{ opacity: 0, scale: 0.32, y: 64 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
       whileHover={{ scale: 1.08 }}
       whileTap={{ scale: 0.98 }}
       transition={{ duration: 1.7, delay, ease: [0.16, 1, 0.3, 1] }}
@@ -89,4 +89,3 @@ export function MemoryConstellation({ name, whisper, delay, drift, onOpen }: Mem
     </motion.button>
   );
 }
-

@@ -26,12 +26,12 @@ export function playPlanetEnter({ universe, layer, planet, warp }: PlanetEnterEl
     gsap.set(warp, { opacity: 0, scale: 0.22, rotate: -8 });
 
     timeline
-      .to(planet, { scale: 1.18, opacity: 1, duration: 0.42 }, 0)
-      .to(layer, { scale: 1.24, rotate: -1.4, duration: 0.72 }, 0)
-      .to(warp, { opacity: 0.88, scale: 1, rotate: 0, duration: 0.42 }, 0.08)
-      .to(layer, { scale: 2.25, rotate: 3.8, duration: 0.82 }, 0.48)
-      .to(planet, { scale: 2.05, opacity: 0.92, duration: 0.8 }, 0.48)
-      .to(warp, { opacity: 1, scale: 4.2, duration: 0.76 }, 0.46)
-      .to(warp, { opacity: 0, scale: 5.6, duration: 0.34, ease: "power2.out" }, 1.1);
+      .to(planet, { scale: 1.12, opacity: 1, duration: 0.28 }, 0)
+      .to(layer, { scale: 1.12, rotate: -0.7, duration: 0.42 }, 0)
+      .to(warp, { opacity: 0.78, scale: 0.9, rotate: 0, duration: 0.3 }, 0.04)
+      .to(layer, { scale: 1.68, rotate: 1.8, duration: 0.54 }, 0.28)
+      .to(planet, { scale: 1.54, opacity: 0.92, duration: 0.52 }, 0.28)
+      .to(warp, { opacity: 0.92, scale: 3.2, duration: 0.48 }, 0.28)
+      .to(warp, { opacity: 0, scale: 3.7, duration: 0.24, ease: "power2.out" }, 0.72);
   });
 }
