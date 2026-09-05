@@ -69,7 +69,7 @@ export default function App() {
 
   return (
     <main className="experience-shell">
-      <StardustCursor />
+      <StardustCursor paused={activeObjectId !== null} />
       <AnimatePresence mode="wait">
         {scene === "landing" ? (
           <LandingScene key="landing" onEnter={handleEnter} />

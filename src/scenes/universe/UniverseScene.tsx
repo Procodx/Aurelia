@@ -1,5 +1,6 @@
 import { type CSSProperties, type PointerEvent, type WheelEvent, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useMotionValue } from "framer-motion";
+import gsap from "gsap";
 import { playPlanetEnter } from "../../animations/planetEnter";
 import { ThreeStarfield } from "../../components/ThreeStarfield";
 import { BloomingPlanet } from "../../features/blooming/BloomingPlanet";
@@ -185,18 +186,23 @@ export function UniverseScene() {
   }, [activeObjectId, transitioningObjectId]);
 
   useEffect(() => {
-    let frameId = 0;
-    const startedAt = performance.now();
+    // Driven by GSAP's shared ticker rather than a second, independent
+    // requestAnimationFrame loop. Every warp/entry animation in this app
+    // already runs on GSAP's ticker, which internally uses a single rAF
+    // registration no matter how many listeners are attached to it — so
+    // adding this tick here doesn't cost the browser an extra callback
+    // per frame the way a standalone rAF loop would, it just runs inside
+    // the one that's already ticking.
+    const startedAt = gsap.ticker.time;
 
-    const tick = (now: number) => {
+    const tick = () => {
       // The planets are fully hidden behind the revelation/overlay panel
       // once one is open, so skip the transform math and let the CPU idle.
       if (overlayOpenRef.current) {
-        frameId = window.requestAnimationFrame(tick);
         return;
       }
 
-      const elapsedSeconds = (now - startedAt) / 1000;
+      const elapsedSeconds = gsap.ticker.time - startedAt;
       orbitTimeRef.current = elapsedSeconds;
 
       for (const object of celestialObjects) {
@@ -209,12 +215,10 @@ export function UniverseScene() {
         planetElement.style.transform = position.transform;
         planetElement.style.zIndex = `${position.zIndex}`;
       }
-
-      frameId = window.requestAnimationFrame(tick);
     };
 
-    frameId = window.requestAnimationFrame(tick);
-    return () => window.cancelAnimationFrame(frameId);
+    gsap.ticker.add(tick);
+    return () => gsap.ticker.remove(tick);
   }, []);
 
   const handlePointerDown = (event: PointerEvent<HTMLElement>) => {

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import gsap from "gsap";
 
 type Dust = {
   x: number;
@@ -8,8 +9,22 @@ type Dust = {
   hue: number;
 };
 
-export function StardustCursor() {
+type StardustCursorProps = {
+  /**
+   * When true, stop spawning new dust and stop drawing entirely — used
+   * while a planet panel (Heart Chamber, Echo Moon, etc.) covers the
+   * screen, so this canvas isn't doing pointless work behind an overlay.
+   */
+  paused?: boolean;
+};
+
+export function StardustCursor({ paused = false }: StardustCursorProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const pausedRef = useRef(paused);
+
+  useEffect(() => {
+    pausedRef.current = paused;
+  }, [paused]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -19,9 +34,8 @@ export function StardustCursor() {
     }
 
     const dust: Dust[] = [];
-    let animationId = 0;
     let lastSpawn = 0;
-    let isDrawing = false;
+    let hadDustLastFrame = false;
 
     const resize = () => {
       const pixelRatio = Math.min(window.devicePixelRatio, 1.5);
@@ -32,7 +46,22 @@ export function StardustCursor() {
       context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
     };
 
+    // Driven by GSAP's shared ticker instead of its own requestAnimationFrame
+    // registration. GSAP already runs one rAF loop for every warp/entry
+    // animation in the app; piggybacking here means the browser schedules
+    // one callback per frame instead of two competing ones, and this
+    // function is a no-op cost (one array-length check) whenever there's
+    // no dust on screen, rather than an idle rAF loop ticking forever.
     const draw = () => {
+      if (pausedRef.current || dust.length === 0) {
+        if (hadDustLastFrame) {
+          context.clearRect(0, 0, window.innerWidth, window.innerHeight);
+          hadDustLastFrame = false;
+        }
+        return;
+      }
+
+      hadDustLastFrame = true;
       context.clearRect(0, 0, window.innerWidth, window.innerHeight);
 
       for (let i = dust.length - 1; i >= 0; i -= 1) {
@@ -52,25 +81,13 @@ export function StardustCursor() {
         context.arc(particle.x, particle.y, particle.size * particle.life, 0, Math.PI * 2);
         context.fill();
       }
-
-      if (dust.length > 0) {
-        animationId = window.requestAnimationFrame(draw);
-        return;
-      }
-
-      isDrawing = false;
-    };
-
-    const startDrawing = () => {
-      if (isDrawing) {
-        return;
-      }
-
-      isDrawing = true;
-      animationId = window.requestAnimationFrame(draw);
     };
 
     const pointerMove = (event: PointerEvent) => {
+      if (pausedRef.current) {
+        return;
+      }
+
       const now = performance.now();
       if (now - lastSpawn < 18) {
         return;
@@ -84,16 +101,15 @@ export function StardustCursor() {
         life: 1,
         hue: [42, 220, 274][Math.floor(Math.random() * 3)],
       });
-
-      startDrawing();
     };
 
     resize();
     window.addEventListener("resize", resize);
     window.addEventListener("pointermove", pointerMove);
+    gsap.ticker.add(draw);
 
     return () => {
-      window.cancelAnimationFrame(animationId);
+      gsap.ticker.remove(draw);
       window.removeEventListener("resize", resize);
       window.removeEventListener("pointermove", pointerMove);
     };

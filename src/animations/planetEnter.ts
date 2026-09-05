@@ -17,21 +17,31 @@ export function playPlanetEnter({ universe, layer, planet, warp }: PlanetEnterEl
       onComplete: () => {
         universe.classList.remove("is-planet-entering");
         planet.classList.remove("is-being-entered");
-        gsap.set([layer, planet, warp], { clearProps: "transform,opacity,willChange" });
+        gsap.set([planet, warp], { clearProps: "transform,opacity,willChange" });
+        gsap.set(layer, { clearProps: "opacity,willChange" });
         resolve();
       },
     });
 
-    gsap.set([layer, planet, warp], { force3D: true, willChange: "transform, opacity" });
+    // Only the entering planet and the warp flash get GPU-layer promotion here.
+    // `layer` (celestial-layer) holds all five planets, each with a blurred
+    // aura and a box-shadow body. Scaling/rotating that whole subtree forced
+    // the browser to re-rasterize every planet's glow on every frame of the
+    // warp — that was the real source of the entry stutter, not the flash
+    // itself. A plain opacity dip on `layer` gives the same "focus pulls
+    // away from the sky" feeling for a fraction of the cost, since opacity
+    // is compositor-only and never touches filters/shadows underneath it.
+    gsap.set([planet, warp], { force3D: true, willChange: "transform, opacity" });
+    gsap.set(layer, { willChange: "opacity" });
     gsap.set(warp, { opacity: 0, scale: 0.22, rotate: -8 });
 
     timeline
-      .to(planet, { scale: 1.12, opacity: 1, duration: 0.28 }, 0)
-      .to(layer, { scale: 1.12, rotate: -0.7, duration: 0.42 }, 0)
+      .to(planet, { scale: 1.16, opacity: 1, duration: 0.3 }, 0)
+      .to(layer, { opacity: 0.55, duration: 0.42 }, 0)
       .to(warp, { opacity: 0.78, scale: 0.9, rotate: 0, duration: 0.3 }, 0.04)
-      .to(layer, { scale: 1.68, rotate: 1.8, duration: 0.54 }, 0.28)
-      .to(planet, { scale: 1.54, opacity: 0.92, duration: 0.52 }, 0.28)
+      .to(planet, { scale: 1.5, opacity: 0.92, duration: 0.5 }, 0.28)
       .to(warp, { opacity: 0.92, scale: 3.2, duration: 0.48 }, 0.28)
+      .to(layer, { opacity: 1, duration: 0.5 }, 0.4)
       .to(warp, { opacity: 0, scale: 3.7, duration: 0.24, ease: "power2.out" }, 0.72);
   });
 }
