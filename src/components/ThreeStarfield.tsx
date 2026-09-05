@@ -120,7 +120,7 @@ export function ThreeStarfield({
     animate();
     window.addEventListener("resize", resize);
     window.addEventListener("pointermove", handlePointerMove);
-
+    
     return () => {
       window.cancelAnimationFrame(frameId);
       window.removeEventListener("resize", resize);
