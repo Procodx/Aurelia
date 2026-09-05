@@ -166,12 +166,24 @@ export function UniverseScene() {
   const warpRef = useRef<HTMLDivElement | null>(null);
   const planetRefs = useRef(new Map<CelestialObject["id"], HTMLDivElement>());
   const orbitTimeRef = useRef(0);
+  const overlayOpenRef = useRef(activeObjectId !== null);
+
+  useEffect(() => {
+    overlayOpenRef.current = activeObjectId !== null;
+  }, [activeObjectId]);
 
   useEffect(() => {
     let frameId = 0;
     const startedAt = performance.now();
 
     const tick = (now: number) => {
+      // The planets are fully hidden behind the revelation/overlay panel
+      // once one is open, so skip the transform math and let the CPU idle.
+      if (overlayOpenRef.current) {
+        frameId = window.requestAnimationFrame(tick);
+        return;
+      }
+
       const elapsedSeconds = (now - startedAt) / 1000;
       orbitTimeRef.current = elapsedSeconds;
 
@@ -303,7 +315,13 @@ export function UniverseScene() {
       onPointerCancel={handlePointerUp}
       onWheel={handleWheel}
     >
-      <ThreeStarfield className="three-starfield universe__starfield" intensity="awake" density={1200} depth={980} />
+      <ThreeStarfield
+        className="three-starfield universe__starfield"
+        intensity="awake"
+        density={1200}
+        depth={980}
+        paused={activeObjectId !== null}
+      />
       <motion.div
         className="universe__arrival-bloom"
         initial={{ opacity: 0.9, scale: 0.16 }}

@@ -6,6 +6,14 @@ type ThreeStarfieldProps = {
   depth?: number;
   className?: string;
   intensity?: "quiet" | "awake";
+  /**
+   * When true, the render loop stops doing any work (no math, no draw call)
+   * while still holding onto the WebGL context. Use this whenever the
+   * starfield is fully hidden behind an overlay — it's the single biggest
+   * lever for FPS since a WebGL render call is the most expensive thing
+   * happening every frame.
+   */
+  paused?: boolean;
 };
 
 export function ThreeStarfield({
@@ -13,8 +21,14 @@ export function ThreeStarfield({
   depth = 900,
   className,
   intensity = "quiet",
+  paused = false,
 }: ThreeStarfieldProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const pausedRef = useRef(paused);
+
+  useEffect(() => {
+    pausedRef.current = paused;
+  }, [paused]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -88,6 +102,11 @@ export function ThreeStarfield({
     let frameId = 0;
     const clock = new THREE.Clock();
     const animate = () => {
+      if (pausedRef.current) {
+        frameId = window.requestAnimationFrame(animate);
+        return;
+      }
+
       const elapsed = clock.getElapsedTime();
       stars.rotation.y = elapsed * 0.008 + pointer.x * 0.035;
       stars.rotation.x = Math.sin(elapsed * 0.12) * 0.015 + pointer.y * 0.025;
