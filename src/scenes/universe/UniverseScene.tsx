@@ -1,5 +1,5 @@
 import { type CSSProperties, type PointerEvent, type WheelEvent, useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useMotionValue } from "framer-motion";
 import { playPlanetEnter } from "../../animations/planetEnter";
 import { ThreeStarfield } from "../../components/ThreeStarfield";
 import { BloomingPlanet } from "../../features/blooming/BloomingPlanet";
@@ -156,8 +156,14 @@ export function UniverseScene() {
   const activeObject = celestialObjects.find((object) => object.id === activeObjectId);
   const genericObjects = celestialObjects.filter((object) => object.id !== "memory-constellation");
   const memoryObject = celestialObjects.find((object) => object.id === "memory-constellation")!;
-  const [zoom, setZoom] = useState(() => getViewSettings().defaultZoom);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
+  // Motion values instead of useState: dragging/zooming calls .set() directly,
+  // which pushes straight to the DOM transform without a React re-render.
+  // Previously these were useState, so every pointermove while dragging
+  // re-rendered the whole scene (all 5 planets, the SVG orbit rings, etc.) —
+  // that was the main source of the lag while panning the sky.
+  const zoomMV = useMotionValue(getViewSettings().defaultZoom);
+  const panX = useMotionValue(0);
+  const panY = useMotionValue(0);
   const [transitioningObjectId, setTransitioningObjectId] = useState<CelestialObject["id"] | null>(null);
   const [visitedObjectIds, setVisitedObjectIds] = useState<Set<CelestialObject["id"]>>(() => new Set());
   const dragRef = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
@@ -169,8 +175,14 @@ export function UniverseScene() {
   const overlayOpenRef = useRef(activeObjectId !== null);
 
   useEffect(() => {
-    overlayOpenRef.current = activeObjectId !== null;
-  }, [activeObjectId]);
+    // transitioningObjectId covers the ~1s GSAP warp animation that plays
+    // while a world is opening. Without it here, the orbit tick below kept
+    // writing planetElement.style.transform every frame while GSAP's
+    // playPlanetEnter timeline was independently tweening transform on that
+    // exact same element — two animation systems fighting over one CSS
+    // property on the same node, which is what caused the stutter on entry.
+    overlayOpenRef.current = activeObjectId !== null || transitioningObjectId !== null;
+  }, [activeObjectId, transitioningObjectId]);
 
   useEffect(() => {
     let frameId = 0;
@@ -213,8 +225,8 @@ export function UniverseScene() {
     dragRef.current = {
       x: event.clientX,
       y: event.clientY,
-      panX: pan.x,
-      panY: pan.y,
+      panX: panX.get(),
+      panY: panY.get(),
     };
     event.currentTarget.setPointerCapture(event.pointerId);
   };
@@ -224,10 +236,8 @@ export function UniverseScene() {
       return;
     }
 
-    setPan({
-      x: dragRef.current.panX + event.clientX - dragRef.current.x,
-      y: dragRef.current.panY + event.clientY - dragRef.current.y,
-    });
+    panX.set(dragRef.current.panX + event.clientX - dragRef.current.x);
+    panY.set(dragRef.current.panY + event.clientY - dragRef.current.y);
   };
 
   const handlePointerUp = (event: PointerEvent<HTMLElement>) => {
@@ -244,13 +254,14 @@ export function UniverseScene() {
 
     event.preventDefault();
     const viewSettings = getViewSettings();
-    setZoom((current) => clamp(current - event.deltaY * 0.0011, viewSettings.minZoom, viewSettings.maxZoom));
+    zoomMV.set(clamp(zoomMV.get() - event.deltaY * 0.0011, viewSettings.minZoom, viewSettings.maxZoom));
   };
 
   const resetView = () => {
     const viewSettings = getViewSettings();
-    setPan({ x: 0, y: 0 });
-    setZoom(viewSettings.defaultZoom);
+    panX.set(0);
+    panY.set(0);
+    zoomMV.set(viewSettings.defaultZoom);
   };
 
   const rememberPlanetRef = (id: CelestialObject["id"]) => (node: HTMLDivElement | null) => {
@@ -278,11 +289,9 @@ export function UniverseScene() {
 
     setTransitioningObjectId(object.id);
     setVisitedObjectIds((current) => new Set(current).add(object.id));
-    setZoom(entryZoom);
-    setPan({
-      x: -(objectPosition.x - orbitCenter.x) * entryZoom,
-      y: -(objectPosition.y - orbitCenter.y) * entryZoom,
-    });
+    zoomMV.set(entryZoom);
+    panX.set(-(objectPosition.x - orbitCenter.x) * entryZoom);
+    panY.set(-(objectPosition.y - orbitCenter.y) * entryZoom);
 
     await waitForNextPaint();
 
@@ -320,7 +329,7 @@ export function UniverseScene() {
         intensity="awake"
         density={1200}
         depth={980}
-        paused={activeObjectId !== null}
+        paused={activeObjectId !== null || transitioningObjectId !== null}
       />
       <motion.div
         className="universe__arrival-bloom"
@@ -361,7 +370,7 @@ export function UniverseScene() {
           type="button"
           onClick={() => {
             const viewSettings = getViewSettings();
-            setZoom((current) => clamp(current + 0.12, viewSettings.minZoom, viewSettings.maxZoom));
+            zoomMV.set(clamp(zoomMV.get() + 0.12, viewSettings.minZoom, viewSettings.maxZoom));
           }}
           aria-label="Move closer"
         >
@@ -371,7 +380,7 @@ export function UniverseScene() {
           type="button"
           onClick={() => {
             const viewSettings = getViewSettings();
-            setZoom((current) => clamp(current - 0.12, viewSettings.minZoom, viewSettings.maxZoom));
+            zoomMV.set(clamp(zoomMV.get() - 0.12, viewSettings.minZoom, viewSettings.maxZoom));
           }}
           aria-label="Move farther"
         >
@@ -385,7 +394,7 @@ export function UniverseScene() {
       <motion.div
         className="universe__camera"
         aria-label="Explorable celestial memories"
-        style={{ x: pan.x, y: pan.y, scale: zoom }}
+        style={{ x: panX, y: panY, scale: zoomMV }}
         transition={{ type: "spring", stiffness: 90, damping: 24 }}
       >
         <div ref={celestialLayerRef} className="celestial-layer">
