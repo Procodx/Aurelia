@@ -6,10 +6,24 @@ export type HeartLetter = {
   signature: string;
 };
 
+type LetterRow = {
+  id: string;
+  author: "henry" | "aurelia";
+  title: string;
+  date_label: string;
+  body: string;
+  signature: string;
+  unlock_at: string | null;
+  created_at: string;
+};
+
 const softGlow = "\u{1F90D}\u{2728}";
 const moonGoldStars = "\u{1F319}\u{1F49B}\u{1F31F}";
 
-export const heartLetters: HeartLetter[] = [
+// Kept as a fallback only — if Supabase isn't configured yet, or the
+// request fails for any reason, the chamber still works and shows these
+// exact same four letters. Nothing breaks while Supabase is being set up.
+export const heartLettersFallback: HeartLetter[] = [
   {
     id: "first-chamber-letter",
     title: "For The Queen Who Became A Universe",
@@ -43,3 +57,42 @@ export const heartLetters: HeartLetter[] = [
     signature: "Sir Henry",
   },
 ];
+
+function isLetterUnlocked(row: LetterRow) {
+  return !row.unlock_at || new Date(row.unlock_at).getTime() <= Date.now();
+}
+
+export async function fetchLetters(): Promise<HeartLetter[]> {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    // Supabase isn't wired up yet — this is expected while the project is
+    // still being created, not an error worth alarming over.
+    return heartLettersFallback;
+  }
+
+  const response = await fetch(
+    `${supabaseUrl}/rest/v1/letters?select=*&order=created_at.asc`,
+    {
+      headers: {
+        apikey: supabaseAnonKey,
+        Authorization: `Bearer ${supabaseAnonKey}`,
+      },
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error("Could not load letters from Supabase");
+  }
+
+  const rows = (await response.json()) as LetterRow[];
+
+  return rows.filter(isLetterUnlocked).map((row) => ({
+    id: row.id,
+    title: row.title,
+    dateLabel: row.date_label,
+    body: row.body,
+    signature: row.signature,
+  }));
+}

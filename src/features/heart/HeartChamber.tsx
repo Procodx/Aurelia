@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { HeartDoorScene } from "./HeartDoorScene";
-import { heartLetters } from "./heartLetters";
+import { fetchLetters, heartLettersFallback, type HeartLetter } from "./heartLetters";
 
 type HeartChamberProps = {
   onClose: () => void;
@@ -9,14 +9,38 @@ type HeartChamberProps = {
 
 export function HeartChamber({ onClose }: HeartChamberProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [activeLetterId, setActiveLetterId] = useState(heartLetters[0].id);
+  const [letters, setLetters] = useState<HeartLetter[]>(heartLettersFallback);
+  const [activeLetterId, setActiveLetterId] = useState(heartLettersFallback[0].id);
   const [typedBody, setTypedBody] = useState("");
   const letterRef = useRef<HTMLDivElement | null>(null);
   const activeLetter = useMemo(
-    () => heartLetters.find((letter) => letter.id === activeLetterId) ?? heartLetters[0],
-    [activeLetterId],
+    () => letters.find((letter) => letter.id === activeLetterId) ?? letters[0],
+    [letters, activeLetterId],
   );
   const splineSceneUrl = import.meta.env.VITE_HEART_CHAMBER_SPLINE_SCENE;
+
+  useEffect(() => {
+    let isMounted = true;
+
+    fetchLetters()
+      .then((loaded) => {
+        if (!isMounted || loaded.length === 0) {
+          return;
+        }
+
+        setLetters(loaded);
+        setActiveLetterId((current) =>
+          loaded.some((letter) => letter.id === current) ? current : loaded[0].id,
+        );
+      })
+      .catch(() => {
+        // Already showing the fallback letters — nothing to do here.
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!isOpen) {
@@ -113,7 +137,7 @@ export function HeartChamber({ onClose }: HeartChamberProps) {
               </div>
 
               <div className="heart-letter-list" aria-label="Heart Chamber letters">
-                {heartLetters.map((letter) => (
+                {letters.map((letter) => (
                   <button
                     className={letter.id === activeLetterId ? "is-active" : ""}
                     key={letter.id}
