@@ -6,6 +6,8 @@ import { ThreeStarfield } from "../../components/ThreeStarfield";
 import { BloomingPlanet } from "../../features/blooming/BloomingPlanet";
 import { EchoMoon } from "../../features/echo/EchoMoon";
 import { HeartChamber } from "../../features/heart/HeartChamber";
+import { fetchLetters } from "../../features/heart/heartLetters";
+import { getStoredIdentity } from "../../features/gate/VisitorIdentity";
 import { MemoryConstellation } from "../../features/memories/MemoryConstellation";
 import { MemoryTimeline } from "../../features/memories/MemoryTimeline";
 import { useExperienceStore } from "../../store/experienceStore";
@@ -157,6 +159,36 @@ export function UniverseScene() {
   const activeObject = celestialObjects.find((object) => object.id === activeObjectId);
   const genericObjects = celestialObjects.filter((object) => object.id !== "memory-constellation");
   const memoryObject = celestialObjects.find((object) => object.id === "memory-constellation")!;
+  const [heartChamberHasUnread, setHeartChamberHasUnread] = useState(false);
+
+  useEffect(() => {
+    if (activeObjectId !== null) {
+      // Only worth checking when we're actually looking at the hub -
+      // this also means the badge refreshes the moment you back out of
+      // the chamber, since that transition sets activeObjectId to null.
+      return;
+    }
+
+    const identity = getStoredIdentity();
+    if (!identity) {
+      return;
+    }
+
+    let isMounted = true;
+    fetchLetters(identity)
+      .then((loaded) => {
+        if (isMounted) {
+          setHeartChamberHasUnread(loaded.some((letter) => letter.isUnread));
+        }
+      })
+      .catch(() => {
+        // Leave the badge as-is if this fails - not worth surfacing an error for.
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeObjectId]);
   // Motion values instead of useState: dragging/zooming calls .set() directly,
   // which pushes straight to the DOM transform without a React re-render.
   // Previously these were useState, so every pointermove while dragging
@@ -494,6 +526,9 @@ export function UniverseScene() {
                   }}
                 />
                 <span className="celestial__aura" />
+                {object.id === "heart-chamber" && heartChamberHasUnread && (
+                  <span className="celestial__unread-badge" aria-label="Unread letter waiting" />
+                )}
                 <span className="celestial__name">{object.name}</span>
                 <span className="celestial__whisper">{object.whisper}</span>
               </motion.button>

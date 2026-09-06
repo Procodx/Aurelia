@@ -1906,6 +1906,7 @@ button {
 }
 
 .heart-chamber__intro button {
+  position: relative;
   margin-top: 28px;
   border: 1px solid rgba(255, 215, 132, 0.34);
   border-radius: 999px;
@@ -3193,6 +3194,47 @@ button {
     font-size: 0.94rem;
   }
 
+  .heart-chamber__badge {
+    top: -7px;
+    right: -7px;
+    min-width: 19px;
+    height: 19px;
+    font-size: 0.68rem;
+  }
+
+  .heart-compose {
+    gap: 12px;
+  }
+
+  .heart-compose__header {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+
+  .heart-compose__header button {
+    min-height: 40px;
+  }
+
+  .heart-compose input,
+  .heart-compose textarea {
+    font-size: 1rem;
+    padding: 12px 14px;
+  }
+
+  .heart-compose textarea {
+    min-height: 160px;
+  }
+
+  .heart-compose__footer {
+    flex-wrap: wrap;
+    row-gap: 10px;
+  }
+
+  .heart-compose__footer button {
+    min-height: 46px;
+    width: 100%;
+  }
+
   .echo-moon-panel {
     inset: 12px 10px max(12px, calc(env(safe-area-inset-bottom) + 12px));
   }
@@ -3413,6 +3455,27 @@ button {
     width: 34px;
   }
 
+  .heart-letter-list__compose {
+    padding: 12px !important;
+    font-size: 0.9rem;
+  }
+
+  .heart-compose {
+    padding: 0;
+  }
+
+  .heart-compose__header h3 {
+    font-size: 1.05rem;
+  }
+
+  .heart-compose textarea {
+    min-height: 130px;
+  }
+
+  .heart-compose__status {
+    font-size: 0.82rem;
+  }
+
   .echo-choice strong {
     font-size: clamp(1.85rem, 10vw, 2.7rem);
   }
@@ -3526,4 +3589,147 @@ button {
 .password-gate__error {
   color: var(--rose);
   font-size: 0.88rem;
+}
+
+/* --- Heart Chamber: unread badge, letter-list dot, compose form --- */
+
+.heart-chamber__badge {
+  position: absolute;
+  top: -9px;
+  right: -9px;
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  border: 2px solid var(--night);
+  background: var(--rose);
+  color: var(--night);
+  font-size: 0.72rem;
+  font-weight: 700;
+  box-shadow: 0 0 12px rgba(215, 125, 150, 0.7);
+  animation: heart-badge-pulse 2.2s ease-in-out infinite;
+}
+
+.celestial__unread-badge {
+  position: absolute;
+  top: 8px;
+  right: clamp(18px, 18%, 34px);
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  border: 2px solid var(--night);
+  background: var(--rose);
+  box-shadow: 0 0 12px rgba(215, 125, 150, 0.75);
+  animation: heart-badge-pulse 2.2s ease-in-out infinite;
+  z-index: 3;
+}
+
+@keyframes heart-badge-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.12);
+  }
+}
+
+.heart-letter-list__unread-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 8px;
+  border-radius: 50%;
+  background: var(--rose);
+  box-shadow: 0 0 8px rgba(215, 125, 150, 0.7);
+  font-style: normal;
+  vertical-align: middle;
+}
+
+.heart-letter-list__compose {
+  border: 1px dashed rgba(255, 215, 132, 0.4) !important;
+  background: rgba(255, 215, 132, 0.07) !important;
+  color: var(--gold) !important;
+  text-align: center !important;
+  font-weight: 600;
+}
+
+.heart-compose {
+  display: grid;
+  gap: 14px;
+  padding: 4px 2px;
+}
+
+.heart-compose__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.heart-compose__header h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 400;
+  color: var(--ink);
+  font-size: clamp(1.1rem, 2vw, 1.4rem);
+}
+
+.heart-compose__header button {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 7px 14px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.heart-compose input,
+.heart-compose textarea {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(5, 7, 20, 0.5);
+  color: var(--ink);
+  padding: 13px 14px;
+  font-family: inherit;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.heart-compose input:focus,
+.heart-compose textarea:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+
+.heart-compose__footer {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.heart-compose__footer button {
+  padding: 12px 20px;
+  border-radius: 999px;
+  border: 0;
+  background: linear-gradient(135deg, var(--gold), var(--rose));
+  color: var(--night);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.heart-compose__footer button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.heart-compose__status.is-sent {
+  color: var(--gold);
+}
+
+.heart-compose__status.is-error {
+  color: var(--rose);
 }

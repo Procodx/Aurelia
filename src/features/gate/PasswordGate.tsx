@@ -18,8 +18,9 @@ export function PasswordGate({ children }: PasswordGateProps) {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-    if (!supabaseUrl) {
+    if (!supabaseUrl || !supabaseAnonKey) {
       // Supabase isn't configured yet - don't lock Henry out of his own
       // site while he's still setting things up.
       setIdentity("henry");
@@ -30,9 +31,17 @@ export function PasswordGate({ children }: PasswordGateProps) {
     setStatus("checking");
 
     try {
+      // Edge Functions require a valid Supabase key on every request, even
+      // one meant to be publicly reachable like this one — the anon key
+      // satisfies that. This is not a login/session token, just proof the
+      // request is coming through Supabase's own client.
       const response = await fetch(`${supabaseUrl}/functions/v1/verify-password`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${supabaseAnonKey}`,
+          apikey: supabaseAnonKey,
+        },
         body: JSON.stringify({ password }),
       });
 
