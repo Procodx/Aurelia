@@ -81,7 +81,10 @@ button {
 .landing__starfield {
   opacity: 0;
 }
-
+.heart-letter,
+.heart-letter-list {
+  touch-action: pan-y;
+}
 .star-tunnel {
   position: absolute;
   inset: -18vmax;
@@ -3116,10 +3119,9 @@ button {
     padding: 78px 22px 32px;
   }
 
-  .heart-chamber.is-open .heart-chamber__threshold {
-    min-height: 236px;
-    padding: 66px 22px 4px;
-  }
+ .heart-chamber.is-open .heart-chamber__threshold {
+  display: none;
+}
 
   .heart-door {
     width: min(78vw, 300px);

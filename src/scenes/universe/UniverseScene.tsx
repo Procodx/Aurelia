@@ -253,20 +253,23 @@ export function UniverseScene() {
     return () => gsap.ticker.remove(tick);
   }, []);
 
-  const handlePointerDown = (event: PointerEvent<HTMLElement>) => {
-    if (transitioningObjectId || (event.target as HTMLElement).closest("button, aside, .universe-controls")) {
-      return;
-    }
+ const handlePointerDown = (event: PointerEvent<HTMLElement>) => {
+  if (
+    activeObjectId ||
+    transitioningObjectId ||
+    (event.target as HTMLElement).closest("button, aside, .universe-controls")
+  ) {
+    return;
+  }
 
-    dragRef.current = {
-      x: event.clientX,
-      y: event.clientY,
-      panX: panX.get(),
-      panY: panY.get(),
-    };
-    event.currentTarget.setPointerCapture(event.pointerId);
+  dragRef.current = {
+    x: event.clientX,
+    y: event.clientY,
+    panX: panX.get(),
+    panY: panY.get(),
   };
-
+  event.currentTarget.setPointerCapture(event.pointerId);
+};
   const handlePointerMove = (event: PointerEvent<HTMLElement>) => {
     if (!dragRef.current) {
       return;
