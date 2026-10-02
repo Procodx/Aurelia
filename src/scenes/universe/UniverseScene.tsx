@@ -5,7 +5,9 @@ import { fetchLetters, heartLettersFallback, markLetterRead } from "../../featur
 import { getStoredIdentity } from "../../features/gate/VisitorIdentity";
 import { useExperienceStore } from "../../store/experienceStore";
 import { requestTiltPermission } from "../../utils/deviceTilt";
+import { createUnlockedAudio } from "./world/vrAudio";
 import { UniverseWorld, type UniverseWorldHandle } from "./world/UniverseWorld";
+import type { VRPlace } from "./world/vrPlace";
 
 // Each planet panel is its own chunk, so the first paint of the universe
 // doesn't download the music player, puzzles, 3D star map and so on.
@@ -124,6 +126,7 @@ export function UniverseScene() {
   const [vrVisiting, setVrVisiting] = useState<CelestialObject["id"] | null>(null);
   const vrFullscreenRef = useRef(false);
   const vrVisitingRef = useRef<CelestialObject["id"] | null>(null);
+  const vrAudioRef = useRef<HTMLAudioElement | null>(null);
   const wakeLockRef = useRef<{ release: () => Promise<void> } | null>(null);
 
   useEffect(() => {
@@ -142,7 +145,9 @@ export function UniverseScene() {
       return;
     }
 
-    // All of these need to happen inside the tap that started VR.
+    // All of these need to happen inside the tap that started VR. The audio
+    // element has to be unlocked first, while the tap is still "fresh".
+    vrAudioRef.current = createUnlockedAudio();
     await requestTiltPermission();
     try {
       await document.documentElement.requestFullscreen?.({ navigationUI: "hide" });
@@ -211,6 +216,43 @@ export function UniverseScene() {
     // stopVR only touches refs and setters, so it is safe to omit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vr]);
+
+  // Each world has its own way of being experienced in VR.
+  const openPlaceInVR = async (id: CelestialObject["id"]) => {
+    if (id === "heart-chamber") {
+      await openHeartChamberInVR();
+      return;
+    }
+
+    const world = worldRef.current;
+    const viewpoint = world?.getViewpoint();
+    if (!world || !viewpoint) {
+      return;
+    }
+
+    let place: VRPlace | null = null;
+    if (id === "memory-constellation") {
+      const [{ createMemoriesPlace }, { memoryMoments }] = await Promise.all([
+        import("./world/places/memoriesPlace"),
+        import("../../features/memories/memoryData"),
+      ]);
+      place = createMemoriesPlace(memoryMoments, viewpoint);
+    } else if (id === "garden-planet") {
+      const { createGardenPlace } = await import("./world/places/gardenPlace");
+      place = await createGardenPlace(viewpoint);
+    } else if (id === "echo-moon" && vrAudioRef.current) {
+      const { createEchoMoonPlace, loadEchoTracks } = await import("./world/places/echoMoonPlace");
+      const tracks = await loadEchoTracks();
+      place = tracks.length > 0 ? createEchoMoonPlace({ tracks, viewpoint, audio: vrAudioRef.current }) : null;
+    }
+
+    // She may already have pressed Return while this loaded.
+    if (place && worldRef.current && vrVisitingRef.current === id) {
+      worldRef.current.setPlace(place);
+    } else {
+      place?.dispose();
+    }
+  };
 
   // The Heart Chamber in VR: her letters float around her as glowing pages.
   const openHeartChamberInVR = async () => {
@@ -285,9 +327,7 @@ export function UniverseScene() {
       setVrVisiting(id);
       worldRef.current?.setDockMode("return");
       await worldRef.current?.flyTo(id);
-      if (id === "heart-chamber") {
-        await openHeartChamberInVR();
-      }
+      await openPlaceInVR(id);
       return;
     }
 
