@@ -4192,7 +4192,7 @@ body.has-interior .revelation {
 /* Once she is diving into or standing inside a world, the universe's own hints go away. */
 .universe.is-inside .universe__invitation,
 .universe.is-inside .universe-controls {
-  opacity: 0;
+  opacity: 0 !important;
   pointer-events: none;
   transition: opacity 500ms ease;
 }

@@ -54,7 +54,7 @@ export function createHeartInterior(context: InteriorContext): Interior {
   const halo = glow("#ff7aa0", 90, 0.9);
   const haloWide = glow("#ffc08a", 190, 0.35);
   heartHolder.add(halo, haloWide);
-  const heartLight = new THREE.PointLight("#ff8aa8", 7, 0, 0.8);
+  const heartLight = new THREE.PointLight("#ff8aa8", 4, 0, 0.8);
   // In front of the heart, so its face is lit and shaded instead of a flat colour.
   heartLight.position.set(18, 36, -40);
   scene.add(heartLight);
@@ -83,7 +83,7 @@ export function createHeartInterior(context: InteriorContext): Interior {
       heartHolder.scale.setScalar(1.25 * (1 + beat * 0.07));
       heartMaterial.emissiveIntensity = 0.45 + beat * 0.6;
       halo.material.opacity = 0.7 + beat * 0.3;
-      heartLight.intensity = 6 + beat * 4;
+      heartLight.intensity = 3.5 + beat * 3;
       heartHolder.rotation.y = Math.sin(elapsed * 0.25) * 0.5;
       heartHolder.position.y = 24 + Math.sin(elapsed * 0.6) * 1.2;
     },

@@ -63,7 +63,9 @@ export function createGardenInterior(context: InteriorContext): Interior {
   const moonTexture = createPlanetTexture("moon", 256, 128);
   const moon = new THREE.Mesh(new THREE.SphereGeometry(26, 40, 28), new THREE.MeshBasicMaterial({ map: moonTexture, color: "#e8eaff", fog: false }));
   moon.position.set(-150, 170, -300);
-  scene.add(moon, Object.assign(glow("#bcc8ff", 150, 0.6), { position: moon.position.clone() }));
+  const moonGlow = glow("#bcc8ff", 150, 0.6);
+  moonGlow.position.copy(moon.position);
+  scene.add(moon, moonGlow);
 
   // Giant flowers on tall stems.
   const stemGeometry = new THREE.CylinderGeometry(0.35, 0.6, 1, 6);

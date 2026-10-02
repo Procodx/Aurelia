@@ -9,7 +9,7 @@ export function createEchoInterior(context: InteriorContext): Interior {
     ...context,
     sky: { band: "#8294e0", warm: "#d4dcff", cool: "#2b3f8c", cloud: "#6a7fd0", base: [1, 2, 9], strength: 0.75 },
     fog: { color: "#05071a", density: 0.0014 },
-    hemisphere: { sky: "#8aa0e8", ground: "#262a4a", intensity: 0.7 },
+    hemisphere: { sky: "#8aa0e8", ground: "#262a4a", intensity: 0.45 },
   });
   const { scene, glow } = base;
 
@@ -19,14 +19,14 @@ export function createEchoInterior(context: InteriorContext): Interior {
       createTerrainTexture(context.lowPower ? 384 : 640, (n, detail, u, v) => {
         // Craters: bright rims around dark bowls.
         const crater = Math.abs(Math.sin(u * 52 + n * 6) * Math.sin(v * 52 + n * 5));
-        const shade = 70 + n * 120 + (detail - 0.5) * 50 - (crater < 0.07 ? 28 : 0);
-        return [shade * 0.92, shade * 0.97, shade * 1.12];
+        const shade = 36 + n * 110 + (detail - 0.5) * 70 - (crater < 0.09 ? 34 : 0);
+        return [Math.max(shade, 8) * 0.92, Math.max(shade, 8) * 0.97, Math.max(shade, 8) * 1.14];
       }, 4),
       { roughness: 1 },
     ),
   );
 
-  const sunLight = new THREE.DirectionalLight("#fff0da", 2.4);
+  const sunLight = new THREE.DirectionalLight("#fff0da", 1.5);
   sunLight.position.set(-120, 90, -60);
   scene.add(sunLight);
 
@@ -76,11 +76,11 @@ export function createEchoInterior(context: InteriorContext): Interior {
 
   // Light posts around the stage.
   const posts: THREE.Mesh[] = [];
-  const postGeometry = new THREE.SphereGeometry(0.9, 12, 10);
+  const postGeometry = new THREE.SphereGeometry(0.5, 12, 10);
   for (let i = 0; i < 20; i += 1) {
     const angle = (i / 20) * Math.PI * 2;
     const post = new THREE.Mesh(postGeometry, new THREE.MeshBasicMaterial({ color: "#c8d4ff", fog: false }));
-    post.position.set(Math.cos(angle) * 28, 1.4, -52 + Math.sin(angle) * 28);
+    post.position.set(Math.cos(angle) * 30, 1, -52 + Math.sin(angle) * 30);
     scene.add(post);
     posts.push(post);
   }
