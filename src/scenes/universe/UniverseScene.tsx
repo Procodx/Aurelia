@@ -247,11 +247,11 @@ export function UniverseScene() {
       ]);
       place = createMemoriesPlace(memoryMoments, viewpoint);
     } else if (id === "future-stars") {
-      const [{ createStarsPlace }, { futureStars }] = await Promise.all([
+      const [{ createStarsPlace }, { fetchStars }] = await Promise.all([
         import("./world/places/starsPlace"),
-        import("../../features/stars/starsData"),
+        import("../../features/stars/starsApi"),
       ]);
-      place = createStarsPlace(futureStars, viewpoint);
+      place = createStarsPlace((await fetchStars()).stars, viewpoint);
     } else if (id === "garden-planet") {
       const { createGardenPlace } = await import("./world/places/gardenPlace");
       place = await createGardenPlace(viewpoint);

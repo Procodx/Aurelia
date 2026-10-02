@@ -1,6 +1,9 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { countdownText, formatStarDate, futureStars, isLit, loadWishes, saveWish } from "./starsData";
+import { getStoredIdentity } from "../gate/VisitorIdentity";
+import { StarsAdmin } from "./StarsAdmin";
+import { fetchStars, getAdminPassword } from "./starsApi";
+import { countdownText, formatStarDate, futureStars, isLit, loadWishes, saveWish, type FutureStar } from "./starsData";
 
 type TomorrowsStarsProps = {
   onClose: () => void;
@@ -8,12 +11,25 @@ type TomorrowsStarsProps = {
 
 export function TomorrowsStars({ onClose }: TomorrowsStarsProps) {
   const now = useMemo(() => new Date(), []);
-  const [activeId, setActiveId] = useState(
-    () => futureStars.find((star) => isLit(star, now))?.id ?? futureStars[0].id,
-  );
+  const [stars, setStars] = useState<FutureStar[]>(futureStars);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const isHenry = getStoredIdentity() === "henry";
+
+  const load = useCallback(async (password?: string) => {
+    const result = await fetchStars(password ?? (isHenry ? getAdminPassword() : undefined));
+    setStars(result.stars);
+    setIsAdmin(result.admin);
+    return result.admin;
+  }, [isHenry]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
   const [wishes, setWishes] = useState(loadWishes);
   const [draft, setDraft] = useState("");
-  const active = futureStars.find((star) => star.id === activeId) ?? futureStars[0];
+  const active =
+    stars.find((star) => star.id === activeId) ?? stars.find((star) => isLit(star, now)) ?? stars[0];
   const lit = isLit(active, now);
   const wish = wishes[active.id];
 
@@ -47,7 +63,7 @@ export function TomorrowsStars({ onClose }: TomorrowsStarsProps) {
       </div>
 
       <ul className="tomorrow-stars__sky">
-        {futureStars.map((star) => {
+        {stars.map((star) => {
           const starLit = isLit(star, now);
           return (
             <li key={star.id}>
@@ -112,6 +128,8 @@ export function TomorrowsStars({ onClose }: TomorrowsStarsProps) {
           </>
         )}
       </motion.section>
+
+      {isHenry && <StarsAdmin stars={stars} admin={isAdmin} onUnlock={load} onChanged={() => void load()} />}
     </motion.aside>
   );
 }
