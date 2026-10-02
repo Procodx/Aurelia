@@ -4164,3 +4164,35 @@ body.vr-active .universe__arrival-dust {
     display: none;
   }
 }
+
+/* --- Standing inside a world: panels become glass over the world --- */
+
+body.has-interior .heart-chamber,
+body.has-interior .blooming-planet,
+body.has-interior .memory-timeline,
+body.has-interior .echo-moon-panel,
+body.has-interior .revelation {
+  background: linear-gradient(145deg, rgba(5, 5, 16, 0.52), rgba(18, 12, 32, 0.44));
+  backdrop-filter: blur(5px);
+}
+
+/* A clearer VR button. */
+.universe-controls .universe-controls__vr {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 72px;
+  padding: 0 14px;
+  border-color: rgba(255, 215, 132, 0.55);
+  color: #ffe9b8;
+  background: rgba(255, 215, 132, 0.12);
+}
+
+/* Once she is diving into or standing inside a world, the universe's own hints go away. */
+.universe.is-inside .universe__invitation,
+.universe.is-inside .universe-controls {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 500ms ease;
+}

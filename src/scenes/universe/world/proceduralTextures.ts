@@ -132,7 +132,9 @@ export function createPlanetTexture(style: SurfaceStyle, width = 384, height = 1
 
 // Inside-of-a-sphere backdrop: a tilted Milky Way band plus drifting nebula
 // clouds, so there is something to look at in every direction.
-export function createSkyTexture(width = 640, height = 320) {
+export type SkyPalette = { band: string; warm: string; cool: string; cloud: string; base?: [number, number, number]; strength?: number };
+
+export function createSkyTexture(width = 640, height = 320, palette?: SkyPalette) {
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
@@ -140,10 +142,12 @@ export function createSkyTexture(width = 640, height = 320) {
   const image = context.createImageData(width, height);
 
   const band = new THREE.Vector3(0.28, 0.9, 0.34).normalize();
-  const lavender: RGB = hexToRgb("#7d6bd8");
-  const gold: RGB = hexToRgb("#e6b878");
-  const blue: RGB = hexToRgb("#3f66c9");
-  const rose: RGB = hexToRgb("#c8507f");
+  const lavender: RGB = hexToRgb(palette?.band ?? "#7d6bd8");
+  const gold: RGB = hexToRgb(palette?.warm ?? "#e6b878");
+  const blue: RGB = hexToRgb(palette?.cool ?? "#3f66c9");
+  const rose: RGB = hexToRgb(palette?.cloud ?? "#c8507f");
+  const base = palette?.base ?? [2, 3, 8];
+  const strength = palette?.strength ?? 0.62;
 
   for (let y = 0; y < height; y += 1) {
     const lat = ((y / (height - 1)) - 0.5) * Math.PI;
@@ -169,10 +173,10 @@ export function createSkyTexture(width = 640, height = 320) {
       color = mix(color, rose, Math.min(cloudMask * warm * 1.4, 0.7));
 
       const i = (y * width + x) * 4;
-      const level = Math.min(intensity, 1) * 0.62;
-      image.data[i] = color[0] * level + 2;
-      image.data[i + 1] = color[1] * level + 3;
-      image.data[i + 2] = color[2] * level + 8;
+      const level = Math.min(intensity, 1) * strength;
+      image.data[i] = color[0] * level + base[0];
+      image.data[i + 1] = color[1] * level + base[1];
+      image.data[i + 2] = color[2] * level + base[2];
       image.data[i + 3] = 255;
     }
   }

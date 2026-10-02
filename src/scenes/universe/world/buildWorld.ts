@@ -3,9 +3,11 @@ import { gsap } from "gsap";
 import { createGlowTexture, createPlanetTexture, createSkyTexture } from "./proceduralTextures";
 import { SUN_RADIUS, type WorldObjectDef, type WorldObjectId } from "./worldConfig";
 import { createStereoRenderer, type StereoRenderer } from "./stereoRenderer";
+import { starShell } from "./starShell";
 import { createHeadTracker, type HeadTracker } from "./headTracking";
 import { createTextSprite, createTextTexture } from "./textSprites";
 import type { Viewpoint, VRPlace } from "./vrPlace";
+import type { Interior } from "./interiors";
 
 export type WorldOptions = {
   canvas: HTMLCanvasElement;
@@ -37,6 +39,10 @@ export type WorldController = {
   /** Show (or with null, remove) a VR place such as the Heart Chamber letters. */
   setPlace: (place: VRPlace | null) => void;
   getViewpoint: () => Viewpoint;
+  /** Dive through a world's atmosphere and land inside it. */
+  enterInterior: (id: WorldObjectId) => Promise<void>;
+  /** Rise back out of the world she is inside. */
+  exitInterior: () => Promise<void>;
 };
 
 // Everything pinned to the viewer sits at the stereo convergence distance, so
@@ -77,65 +83,6 @@ function atmosphereMaterial(color: string, strength = 1.1, power = 2.6) {
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   });
-}
-
-function starShell(count: number, minRadius: number, maxRadius: number, sizeRange: [number, number], pixelRatio: number) {
-  const positions = new Float32Array(count * 3);
-  const colors = new Float32Array(count * 3);
-  const sizes = new Float32Array(count);
-  const phases = new Float32Array(count);
-  const palette = ["#fff7d6", "#d9e7ff", "#e5cffd", "#ffdfac", "#ffffff"].map((c) => new THREE.Color(c));
-  const direction = new THREE.Vector3();
-
-  for (let i = 0; i < count; i += 1) {
-    direction.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
-    const radius = minRadius + Math.random() * (maxRadius - minRadius);
-    positions.set([direction.x * radius, direction.y * radius, direction.z * radius], i * 3);
-    const color = palette[Math.floor(Math.random() * palette.length)];
-    colors.set([color.r, color.g, color.b], i * 3);
-    // Mostly tiny stars with a few bright ones.
-    sizes[i] = sizeRange[0] + Math.pow(Math.random(), 3.2) * (sizeRange[1] - sizeRange[0]);
-    phases[i] = Math.random() * Math.PI * 2;
-  }
-
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-  geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
-  geometry.setAttribute("aSize", new THREE.BufferAttribute(sizes, 1));
-  geometry.setAttribute("aPhase", new THREE.BufferAttribute(phases, 1));
-
-  const material = new THREE.ShaderMaterial({
-    uniforms: { uTime: { value: 0 }, uPixelRatio: { value: pixelRatio } },
-    vertexShader: `
-      attribute float aSize;
-      attribute float aPhase;
-      attribute vec3 color;
-      uniform float uTime;
-      uniform float uPixelRatio;
-      varying vec3 vColor;
-      varying float vTwinkle;
-      void main() {
-        vColor = color;
-        vTwinkle = 0.72 + 0.28 * sin(uTime * (0.6 + aSize * 0.35) + aPhase);
-        gl_PointSize = aSize * uPixelRatio * vTwinkle;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-      }
-    `,
-    fragmentShader: `
-      varying vec3 vColor;
-      varying float vTwinkle;
-      void main() {
-        float d = length(gl_PointCoord - 0.5) * 2.0;
-        float a = smoothstep(1.0, 0.0, d);
-        gl_FragColor = vec4(vColor, a * a * vTwinkle);
-      }
-    `,
-    transparent: true,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending,
-  });
-
-  return new THREE.Points(geometry, material);
 }
 
 export function createWorld(options: WorldOptions): WorldController {
@@ -534,6 +481,29 @@ export function createWorld(options: WorldOptions): WorldController {
   let flying = false;
   let disposed = false;
 
+  // Which scene is on screen: the universe, or the inside of a world.
+  let activeScene: THREE.Scene = scene;
+  let inside = false;
+  let interior: Interior | null = null;
+  let interiorPromise: Promise<Interior> | null = null;
+  let interiorForId: WorldObjectId | null = null;
+  let savedPose: { x: number; y: number; z: number; yaw: number; pitch: number } | null = null;
+
+  // A full-screen flash pinned to the camera, used when diving in and out.
+  const flashMaterial = new THREE.MeshBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0, depthTest: false, depthWrite: false, fog: false });
+  const flashPlane = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), flashMaterial);
+  flashPlane.position.set(0, 0, -1);
+  flashPlane.renderOrder = 2000;
+  flashPlane.frustumCulled = false;
+  flashPlane.visible = false;
+  camera.add(flashPlane);
+  track(flashPlane.geometry);
+  track(flashMaterial);
+  const setFlash = (opacity: number) => {
+    flashMaterial.opacity = opacity;
+    flashPlane.visible = opacity > 0.002;
+  };
+
   // VR state
   const vrHome = { x: 0, y: 18, z: 78, yaw: 0, pitch: -0.1 };
   let vr = false;
@@ -656,6 +626,8 @@ export function createWorld(options: WorldOptions): WorldController {
     frozen = true;
     velYaw = 0;
     velPitch = 0;
+    // Build the inside of this world while the camera travels there.
+    window.setTimeout(() => void prepareInterior(id), 60);
 
     const target = bodyPosition(body, new THREE.Vector3());
     const from = new THREE.Vector3(pose.x, pose.y, pose.z);
@@ -670,7 +642,7 @@ export function createWorld(options: WorldOptions): WorldController {
     const endYaw = Math.atan2(-toTarget.x, -toTarget.z);
     const endPitch = Math.asin(toTarget.y);
 
-    await tweenPose({ x: end.x, y: end.y, z: end.z, yaw: endYaw, pitch: endPitch }, 2.6);
+    await tweenPose({ x: end.x, y: end.y, z: end.z, yaw: endYaw, pitch: endPitch }, 2.2);
     flying = false;
   };
 
@@ -679,10 +651,138 @@ export function createWorld(options: WorldOptions): WorldController {
       return;
     }
 
+    if (inside) {
+      await exitInterior();
+    }
+
     flying = true;
     await tweenPose({ ...baseHome() }, 2.2);
     flying = false;
     frozen = false;
+  };
+
+  // ---------- Inside a world ----------
+  const prepareInterior = (id: WorldObjectId) => {
+    if (interiorPromise && interiorForId === id) {
+      return interiorPromise;
+    }
+    interiorForId = id;
+    interiorPromise = import("./interiors").then((module) => module.createInterior(id, { lowPower, pixelRatio }));
+    return interiorPromise;
+  };
+
+  const swapScene = (next: THREE.Scene) => {
+    activeScene = next;
+    next.add(camera);
+    next.add(dock);
+  };
+
+  const hideLabels = () => {
+    for (const body of bodies) {
+      options.positionLabel(body.def.id, -9999, -9999, false);
+    }
+    options.positionLabel("sun", -9999, -9999, false);
+  };
+
+  const flashTween = (from: number, to: number, duration: number, ease = "power2.inOut") =>
+    new Promise<void>((resolve) => {
+      const state = { value: from };
+      gsap.to(state, {
+        value: to,
+        duration: reducedMotion ? Math.min(duration, 0.4) : duration,
+        ease,
+        onUpdate: () => setFlash(state.value),
+        onComplete: () => resolve(),
+      });
+    });
+
+  const enterInterior = async (id: WorldObjectId) => {
+    const body = bodies.find((item) => item.def.id === id);
+    if (!body || inside || flying) {
+      return;
+    }
+
+    const built = await prepareInterior(id);
+    if (disposed) {
+      built.dispose();
+      return;
+    }
+    flying = true;
+    velYaw = 0;
+    velPitch = 0;
+    savedPose = { x: pose.x, y: pose.y, z: pose.z, yaw: pose.yaw, pitch: pose.pitch };
+    flashMaterial.color.set(built.flash);
+
+    // Dive: rush at the planet, the flash swelling over the last half.
+    const planet = bodyPosition(body, new THREE.Vector3());
+    const start = new THREE.Vector3(pose.x, pose.y, pose.z);
+    const stop = planet.clone().add(start.clone().sub(planet).normalize().multiplyScalar(body.def.radius * 0.3));
+    await new Promise<void>((resolve) => {
+      const state = { p: 0 };
+      gsap.to(state, {
+        p: 1,
+        duration: reducedMotion ? 0.5 : 1.4,
+        ease: "power2.in",
+        onUpdate: () => {
+          pose.x = start.x + (stop.x - start.x) * state.p;
+          pose.y = start.y + (stop.y - start.y) * state.p;
+          pose.z = start.z + (stop.z - start.z) * state.p;
+          setFlash(Math.min(Math.max((state.p - 0.4) / 0.6, 0), 1));
+        },
+        onComplete: () => resolve(),
+      });
+    });
+    if (disposed) {
+      return;
+    }
+
+    // Swap worlds under the flash, then land.
+    interior = built;
+    inside = true;
+    swapScene(built.scene);
+    hideLabels();
+    const spawn = built.spawn;
+    pose.x = spawn.x;
+    pose.y = spawn.y + 24;
+    pose.z = spawn.z;
+    pose.yaw = spawn.yaw;
+    pose.pitch = spawn.pitch;
+    const landing = new Promise<void>((resolve) => {
+      gsap.to(pose, { y: spawn.y, duration: reducedMotion ? 0.4 : 2.2, ease: "power3.out", onComplete: () => resolve() });
+    });
+    await Promise.all([flashTween(1, 0, 1.4, "power2.out"), landing]);
+    flying = false;
+    frozen = true;
+  };
+
+  const leaveInteriorNow = () => {
+    if (!inside) {
+      return;
+    }
+    swapScene(scene);
+    interior?.dispose();
+    interior = null;
+    interiorPromise = null;
+    interiorForId = null;
+    inside = false;
+    setFlash(0);
+    if (savedPose) {
+      Object.assign(pose, savedPose);
+    }
+  };
+
+  const exitInterior = async () => {
+    if (!inside || flying) {
+      return;
+    }
+    flying = true;
+    if (interior) {
+      flashMaterial.color.set(interior.flash);
+    }
+    await flashTween(0, 1, 0.9, "power2.in");
+    leaveInteriorNow();
+    await flashTween(1, 0, 1, "power2.out");
+    flying = false;
   };
 
   const resetView = () => {
@@ -714,7 +814,8 @@ export function createWorld(options: WorldOptions): WorldController {
   };
 
   const onPointerDown = (event: PointerEvent) => {
-    if (flying || frozen || vr) {
+    // Inside a world she can still look around by dragging.
+    if (flying || (frozen && !inside) || vr) {
       return;
     }
     pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
@@ -769,7 +870,7 @@ export function createWorld(options: WorldOptions): WorldController {
     if (canvas.hasPointerCapture(event.pointerId)) {
       canvas.releasePointerCapture(event.pointerId);
     }
-    if (wasTracked && pointers.size === 0 && dragMoved < 8 && performance.now() - downAt < 600) {
+    if (!inside && wasTracked && pointers.size === 0 && dragMoved < 8 && performance.now() - downAt < 600) {
       velYaw = 0;
       velPitch = 0;
       const id = pickAt(event.clientX, event.clientY);
@@ -851,6 +952,7 @@ export function createWorld(options: WorldOptions): WorldController {
     renderer.setRenderTarget(null);
     camera.focus = 10;
     setPlace(null);
+    leaveInteriorNow();
     reticle.visible = false;
     welcome.sprite.visible = false;
     dock.visible = false;
@@ -869,7 +971,7 @@ export function createWorld(options: WorldOptions): WorldController {
     }
     place = next;
     if (next) {
-      scene.add(next.group);
+      activeScene.add(next.group);
     }
   };
 
@@ -1050,9 +1152,10 @@ export function createWorld(options: WorldOptions): WorldController {
 
       // Names would collide with the Return button while she is visiting a world.
       vrOnlyObjects.forEach((item) => (item.visible = !frozen));
+      interior?.update(delta, elapsed);
       place?.update(delta, elapsed);
       updateGaze(delta);
-      stereo?.render(scene, camera, vignette);
+      stereo?.render(activeScene, camera, vignette);
       return;
     }
 
@@ -1061,9 +1164,13 @@ export function createWorld(options: WorldOptions): WorldController {
     camera.position.set(pose.x, pose.y + bob, pose.z);
     camera.rotation.set(pose.pitch + tiltPitch, pose.yaw + tiltYaw, 0);
 
-    renderer.render(scene, camera);
+    interior?.update(delta, elapsed);
+    renderer.render(activeScene, camera);
 
-    // Keep the DOM labels glued to their planets.
+    // Keep the DOM labels glued to their planets (not while inside a world).
+    if (inside) {
+      return;
+    }
     for (const body of bodies) {
       project(body.def.id, body.group.position, -body.def.radius * 1.25);
     }
@@ -1078,6 +1185,7 @@ export function createWorld(options: WorldOptions): WorldController {
       window.cancelAnimationFrame(frameId);
       stereo?.dispose();
       head?.dispose();
+      interior?.dispose();
       canvas.removeEventListener("pointerdown", onPointerDown);
       canvas.removeEventListener("pointermove", onPointerMove);
       canvas.removeEventListener("pointerup", onPointerUp);
@@ -1117,6 +1225,8 @@ export function createWorld(options: WorldOptions): WorldController {
       pose.pitch = Math.asin(direction.y);
     },
     setPlace,
+    enterInterior,
+    exitInterior,
     getViewpoint: () => ({ position: new THREE.Vector3(pose.x, pose.y, pose.z), yaw: pose.yaw, pitch: pose.pitch }),
   };
 }

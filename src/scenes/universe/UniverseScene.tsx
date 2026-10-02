@@ -134,6 +134,13 @@ export function UniverseScene() {
     return () => document.body.classList.remove("vr-active");
   }, [vr]);
 
+  // While a panel is open she is standing inside that world; the panel turns
+  // to glass so the world shows through.
+  useEffect(() => {
+    document.body.classList.toggle("has-interior", activeObjectId !== null);
+    return () => document.body.classList.remove("has-interior");
+  }, [activeObjectId]);
+
   useEffect(() => {
     if (import.meta.env.DEV) {
       (window as unknown as { __world?: UniverseWorldHandle | null }).__world = worldRef.current;
@@ -330,6 +337,8 @@ export function UniverseScene() {
       setVrVisiting(id);
       worldRef.current?.setDockMode("return");
       await worldRef.current?.flyTo(id);
+      // Dive through the atmosphere and land inside the world, then open its place.
+      await worldRef.current?.enterInterior(id);
       await openPlaceInVR(id);
       return;
     }
@@ -339,14 +348,23 @@ export function UniverseScene() {
     }
 
     setTransitioningObjectId(id);
+    // Fly to the world, dive through its atmosphere and land inside it - the
+    // panel then opens over the world she is standing in.
     await worldRef.current?.flyTo(id);
+    await worldRef.current?.enterInterior(id);
     focusObject(id);
     setTransitioningObjectId(null);
   };
 
   return (
     <motion.section
-      className={transitioningObjectId ? "universe scene is-travelling" : "universe scene"}
+      className={[
+        "universe scene",
+        transitioningObjectId ? "is-travelling" : "",
+        transitioningObjectId || activeObjectId ? "is-inside" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
       initial={{ opacity: 0, scale: 1.08 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0 }}
@@ -355,8 +373,8 @@ export function UniverseScene() {
       <UniverseWorld
         ref={worldRef}
         labels={celestialObjects.map(({ id, name, whisper }) => ({ id, name, whisper }))}
-        paused={activeObjectId !== null && transitioningObjectId === null}
-        travelling={transitioningObjectId !== null}
+        paused={false}
+        travelling={transitioningObjectId !== null || activeObjectId !== null}
         heartHasUnread={heartChamberHasUnread}
         vr={vr}
         onEnter={(id) => void enterObject(id)}
@@ -402,7 +420,12 @@ export function UniverseScene() {
           aria-label="Enter Google Cardboard VR mode"
           title="Cardboard VR"
         >
-          VR
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 8.5C3 7.7 3.7 7 4.5 7h15c.8 0 1.5.7 1.5 1.5v6c0 .8-.7 1.5-1.5 1.5h-4.2c-.5 0-1-.3-1.3-.7l-.6-1c-.3-.5-.9-.8-1.4-.8s-1.1.3-1.4.8l-.6 1c-.3.4-.8.7-1.3.7H4.5C3.7 16 3 15.3 3 14.5v-6Z" />
+            <circle cx="8" cy="11.5" r="1.4" />
+            <circle cx="16" cy="11.5" r="1.4" />
+          </svg>
+          <span>VR</span>
         </button>
       </div>
 

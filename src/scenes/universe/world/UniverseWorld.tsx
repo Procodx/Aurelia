@@ -16,6 +16,8 @@ export type UniverseWorldHandle = {
   aim: (id: WorldObjectId | "dock") => void;
   setPlace: (place: VRPlace | null) => void;
   getViewpoint: () => Viewpoint | null;
+  enterInterior: (id: WorldObjectId) => Promise<void>;
+  exitInterior: () => Promise<void>;
 };
 
 type UniverseWorldProps = {
@@ -59,6 +61,8 @@ export const UniverseWorld = forwardRef<UniverseWorldHandle, UniverseWorldProps>
       aim: (id) => controllerRef.current?.aim(id),
       setPlace: (place) => controllerRef.current?.setPlace(place),
       getViewpoint: () => controllerRef.current?.getViewpoint() ?? null,
+      enterInterior: (id) => controllerRef.current?.enterInterior(id) ?? Promise.resolve(),
+      exitInterior: () => controllerRef.current?.exitInterior() ?? Promise.resolve(),
     }),
     [],
   );
