@@ -4170,6 +4170,7 @@ body.vr-active .universe__arrival-dust {
 body.has-interior .heart-chamber,
 body.has-interior .blooming-planet,
 body.has-interior .memory-timeline,
+body.has-interior .tomorrow-stars,
 body.has-interior .echo-moon-panel,
 body.has-interior .revelation {
   background: linear-gradient(145deg, rgba(5, 5, 16, 0.52), rgba(18, 12, 32, 0.44));
@@ -4229,4 +4230,194 @@ body.has-interior .revelation {
   border-color: transparent transparent transparent rgba(255, 215, 132, 0.95);
   filter: drop-shadow(0 0 6px rgba(255, 215, 132, 0.8));
   transform: rotate(var(--edge-angle, 0rad)) translateX(var(--edge-radius, 62px));
+}
+
+/* --- Tomorrow's Stars --- */
+
+.tomorrow-stars {
+  position: fixed;
+  z-index: 20;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  top: clamp(44px, 7vh, 80px);
+  bottom: clamp(18px, 5vh, 48px);
+  width: min(720px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: clamp(18px, 3vw, 32px);
+  overflow-y: auto;
+  border: 1px solid rgba(255, 248, 234, 0.16);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(4, 7, 18, 0.86), rgba(24, 23, 52, 0.76)),
+    radial-gradient(circle at 50% 18%, rgba(183, 155, 255, 0.18), transparent 40%);
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.48), 0 0 70px rgba(114, 80, 165, 0.24);
+  backdrop-filter: blur(12px);
+  color: var(--text, #fff6e4);
+}
+
+.tomorrow-stars__close {
+  align-self: flex-end;
+  min-width: 74px;
+  min-height: 44px;
+  border: 1px solid rgba(255, 248, 234, 0.14);
+  border-radius: 999px;
+  padding: 8px 13px;
+  background: rgba(255, 248, 234, 0.06);
+  color: var(--muted, #cfc8e0);
+  cursor: pointer;
+}
+
+.tomorrow-stars__header p {
+  margin: 0 0 6px;
+  font-size: 0.78rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(255, 215, 132, 0.85);
+}
+
+.tomorrow-stars__header h2 {
+  margin: 0 0 8px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 400;
+  font-size: clamp(1.7rem, 5vw, 2.4rem);
+}
+
+.tomorrow-stars__header span {
+  color: var(--muted, #cfc8e0);
+  line-height: 1.5;
+}
+
+.tomorrow-stars__sky {
+  list-style: none;
+  margin: 0;
+  padding: 10px 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-around;
+  gap: 8px 14px;
+}
+
+.future-star {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  min-width: 76px;
+  min-height: 76px;
+  padding: 4px;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  --star: #e6b878;
+}
+
+.future-star--blue { --star: #7fb2ff; }
+.future-star--rose { --star: #f08aa8; }
+.future-star--violet { --star: #b79bff; }
+
+.future-star__glow {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff4c8 0 30%, var(--star) 55%, transparent 72%);
+  box-shadow: 0 0 26px 6px var(--star);
+  animation: future-star-twinkle 3.4s ease-in-out infinite;
+}
+
+.future-star.is-dim .future-star__glow {
+  background: radial-gradient(circle, #9aa4c8 0 28%, rgba(120, 130, 170, 0.5) 52%, transparent 72%);
+  box-shadow: 0 0 10px 1px rgba(150, 160, 200, 0.35);
+  opacity: 0.55;
+  animation-duration: 6s;
+}
+
+.future-star.is-active .future-star__glow {
+  transform: scale(1.35);
+}
+
+.future-star__label {
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
+  color: var(--muted, #cfc8e0);
+}
+
+.future-star:focus-visible {
+  outline: 2px solid rgba(255, 215, 132, 0.8);
+  outline-offset: 2px;
+  border-radius: 12px;
+}
+
+@keyframes future-star-twinkle {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.35); }
+}
+
+.tomorrow-stars__card {
+  padding: clamp(16px, 3vw, 26px);
+  border: 1px solid rgba(255, 248, 234, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 248, 234, 0.04);
+  text-align: center;
+}
+
+.tomorrow-stars__card p {
+  margin: 0 0 8px;
+  font-size: 0.8rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255, 215, 132, 0.85);
+}
+
+.tomorrow-stars__card h3 {
+  margin: 0 0 12px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 400;
+  font-size: clamp(1.4rem, 4vw, 1.9rem);
+}
+
+.tomorrow-stars__card blockquote {
+  margin: 0 0 16px;
+  font-style: italic;
+  line-height: 1.6;
+}
+
+.tomorrow-stars__wish {
+  display: block;
+  color: var(--muted, #cfc8e0);
+  font-size: 0.95rem;
+}
+
+.tomorrow-stars__form {
+  display: flex;
+  gap: 8px;
+}
+
+.tomorrow-stars__form input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 248, 234, 0.2);
+  border-radius: 999px;
+  background: rgba(4, 7, 18, 0.5);
+  color: inherit;
+  font-size: 16px;
+}
+
+.tomorrow-stars__form button {
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid rgba(255, 215, 132, 0.5);
+  border-radius: 999px;
+  background: rgba(255, 215, 132, 0.14);
+  color: #ffe9b8;
+  cursor: pointer;
+}
+
+.tomorrow-stars__form button:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
