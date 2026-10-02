@@ -67,7 +67,8 @@ export function createGalleryPlace({ items, viewpoint, ambient: ambientOptions, 
       canvas.width = CARD_W;
       canvas.height = CARD_H;
       const sheet = makeSheet(canvas, CARD_WIDTH);
-      const wave = organic ? Math.sin(index * 1.9) * 0.9 : 0;
+      // Only ever lower items, never raise them into her line of sight.
+      const wave = organic ? (Math.sin(index * 1.9) - 1) * 0.45 : 0;
       sheet.mesh.position.copy(around(angle, CARD_RADIUS, -SHELF_DROP + Math.abs(angle) * 1.4 + wave));
       sheet.mesh.lookAt(origin);
       if (organic) {
