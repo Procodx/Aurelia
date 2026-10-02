@@ -74,6 +74,8 @@ export function PasswordGate({ children }: PasswordGateProps) {
         <input
           type="password"
           autoFocus
+          autoComplete="current-password"
+          enterKeyHint="go"
           value={password}
           onChange={(event) => {
             setPassword(event.target.value);

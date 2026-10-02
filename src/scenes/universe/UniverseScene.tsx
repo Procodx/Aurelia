@@ -222,10 +222,28 @@ export function UniverseScene() {
     return () => window.clearTimeout(id);
   }, []);
   const panX = useMotionValue(0);
+
+  // Escape closes whichever planet panel is open (keyboard / tablet keyboards).
+  useEffect(() => {
+    if (!activeObjectId) {
+      return;
+    }
+
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        clearFocus();
+      }
+    };
+
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [activeObjectId, clearFocus]);
   const panY = useMotionValue(0);
   const [transitioningObjectId, setTransitioningObjectId] = useState<CelestialObject["id"] | null>(null);
   const [visitedObjectIds, setVisitedObjectIds] = useState<Set<CelestialObject["id"]>>(() => new Set());
   const dragRef = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
+  const pointersRef = useRef(new Map<number, { x: number; y: number }>());
+  const pinchRef = useRef<{ distance: number; zoom: number } | null>(null);
   const universeRef = useRef<HTMLElement | null>(null);
   const celestialLayerRef = useRef<HTMLDivElement | null>(null);
   const warpRef = useRef<HTMLDivElement | null>(null);
@@ -279,24 +297,49 @@ export function UniverseScene() {
     return () => gsap.ticker.remove(tick);
   }, []);
 
- const handlePointerDown = (event: PointerEvent<HTMLElement>) => {
-  if (
-    activeObjectId ||
-    transitioningObjectId ||
-    (event.target as HTMLElement).closest("button, aside, .universe-controls")
-  ) {
-    return;
-  }
+  const handlePointerDown = (event: PointerEvent<HTMLElement>) => {
+    if (
+      activeObjectId ||
+      transitioningObjectId ||
+      (event.target as HTMLElement).closest("button, aside, .universe-controls")
+    ) {
+      return;
+    }
 
-  dragRef.current = {
-    x: event.clientX,
-    y: event.clientY,
-    panX: panX.get(),
-    panY: panY.get(),
+    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    event.currentTarget.setPointerCapture(event.pointerId);
+
+    if (pointersRef.current.size === 2) {
+      // Second finger down: switch from panning to pinch-zooming.
+      dragRef.current = null;
+      const [a, b] = [...pointersRef.current.values()];
+      pinchRef.current = { distance: Math.hypot(a.x - b.x, a.y - b.y) || 1, zoom: zoomMV.get() };
+      return;
+    }
+
+    dragRef.current = {
+      x: event.clientX,
+      y: event.clientY,
+      panX: panX.get(),
+      panY: panY.get(),
+    };
   };
-  event.currentTarget.setPointerCapture(event.pointerId);
-};
+
   const handlePointerMove = (event: PointerEvent<HTMLElement>) => {
+    if (!pointersRef.current.has(event.pointerId)) {
+      return;
+    }
+
+    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+    if (pinchRef.current && pointersRef.current.size >= 2) {
+      const [a, b] = [...pointersRef.current.values()];
+      const viewSettings = getViewSettings();
+      const scale = (Math.hypot(a.x - b.x, a.y - b.y) || 1) / pinchRef.current.distance;
+      zoomMV.set(clamp(pinchRef.current.zoom * scale, viewSettings.minZoom, viewSettings.maxZoom));
+      return;
+    }
+
     if (!dragRef.current) {
       return;
     }
@@ -306,7 +349,15 @@ export function UniverseScene() {
   };
 
   const handlePointerUp = (event: PointerEvent<HTMLElement>) => {
-    dragRef.current = null;
+    pointersRef.current.delete(event.pointerId);
+    pinchRef.current = null;
+
+    // If one finger stays down after a pinch, carry on panning from where it is.
+    const [remaining] = [...pointersRef.current.values()];
+    dragRef.current = remaining
+      ? { x: remaining.x, y: remaining.y, panX: panX.get(), panY: panY.get() }
+      : null;
+
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }

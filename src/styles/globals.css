@@ -3847,3 +3847,146 @@ button {
     opacity: 0.7;
   }
 }
+
+/* --- Touch ergonomics, focus, tablet and landscape polish --- */
+
+/* Comfortable (>= 44px) targets on touch screens. */
+@media (pointer: coarse) {
+  .universe-controls button {
+    min-width: 44px;
+    height: 44px;
+  }
+
+  .universe-controls button:last-child {
+    min-width: 64px;
+  }
+
+  .sound-orb {
+    width: 48px;
+    height: 48px;
+  }
+
+  .celestial {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  button {
+    touch-action: manipulation;
+  }
+
+  [class*="__close"] {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+/* One consistent keyboard focus ring everywhere (keyboards on tablets too). */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid rgba(255, 215, 132, 0.78);
+  outline-offset: 3px;
+}
+
+/* Tablets in portrait sit between the phone and desktop layouts. */
+@media (min-width: 761px) and (max-width: 1120px) and (orientation: portrait) {
+  .universe__invitation p {
+    font-size: clamp(2rem, 6vw, 2.9rem);
+  }
+
+  .universe__camera {
+    transform-origin: 50% 50%;
+  }
+}
+
+/* Phones (and small tablets) held sideways: very little height to spare. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .landing h1 {
+    font-size: clamp(1.5rem, 6vh, 2.2rem);
+  }
+
+  .universe__invitation {
+    top: max(10px, env(safe-area-inset-top));
+    left: max(16px, env(safe-area-inset-left));
+  }
+
+  .universe__invitation p {
+    max-width: 320px;
+    font-size: clamp(1.2rem, 5.5vh, 1.7rem);
+  }
+
+  .universe__invitation span {
+    max-width: 280px;
+    margin-top: 4px;
+    font-size: 0.74rem;
+  }
+
+  .universe-controls {
+    right: max(14px, env(safe-area-inset-right));
+    bottom: max(10px, env(safe-area-inset-bottom));
+  }
+
+  .sound-orb {
+    right: max(14px, env(safe-area-inset-right));
+    bottom: 72px;
+  }
+
+  .revelation h2,
+  .blooming-planet__header h2,
+  .memory-timeline__header h2,
+  .heart-chamber__intro h2,
+  .heart-chamber__inside-header h2,
+  .echo-moon__header h2 {
+    font-size: clamp(1.4rem, 7vh, 2rem);
+    line-height: 1.12;
+  }
+
+  .blooming-planet,
+  .memory-timeline,
+  .heart-chamber,
+  .echo-moon {
+    inset: 8px max(10px, env(safe-area-inset-right)) 8px max(10px, env(safe-area-inset-left));
+    padding-top: 12px;
+    padding-bottom: 12px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  .password-gate {
+    align-items: start;
+    overflow-y: auto;
+  }
+
+  .password-gate__card {
+    padding: 22px 24px;
+    gap: 10px;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 520px) {
+  .memory-timeline__header span,
+  .heart-chamber__intro p,
+  .echo-moon__header span {
+    font-size: 0.82rem;
+    line-height: 1.4;
+  }
+
+  .memory-experience {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .memory-star-map {
+    min-height: min(300px, 70vh);
+  }
+
+  .memory-stage .memory-stage__copy h3,
+  .memory-artifact__copy h3 {
+    font-size: clamp(1.2rem, 6vh, 1.6rem);
+  }
+}
