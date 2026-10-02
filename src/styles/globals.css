@@ -16,6 +16,9 @@ body,
 body {
   font-family: var(--font-body);
   color: var(--ink);
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
 }
 
 button,
@@ -628,10 +631,39 @@ button {
   transition: opacity 900ms ease, transform 900ms ease;
 }
 
-.celestial:hover .celestial__aura,
 .celestial:focus-visible .celestial__aura {
   opacity: 0.9;
   transform: scale(1.18);
+}
+
+@media (hover: hover) {
+  .celestial:hover .celestial__aura {
+    opacity: 0.9;
+    transform: scale(1.18);
+  }
+}
+
+/* Touch screens can't hover, so the aura breathes on its own and a tap
+   (:active) brightens it. */
+@media (hover: none) {
+  .celestial__aura {
+    animation: celestial-aura-breathe 5.5s ease-in-out infinite;
+  }
+
+  .celestial:active .celestial__aura {
+    opacity: 0.9;
+    transform: scale(1.18);
+  }
+}
+
+@keyframes celestial-aura-breathe {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.8;
+  }
 }
 
 .celestial__name {
@@ -657,10 +689,24 @@ button {
   transition: color 700ms ease, transform 700ms ease;
 }
 
-.celestial:hover .celestial__whisper,
 .celestial:focus-visible .celestial__whisper {
   color: rgba(255, 248, 234, 0.72);
   transform: translateY(0);
+}
+
+@media (hover: hover) {
+  .celestial:hover .celestial__whisper {
+    color: rgba(255, 248, 234, 0.72);
+    transform: translateY(0);
+  }
+}
+
+/* No hover on touch: let the whispers fade in softly on their own. */
+@media (hover: none) {
+  .celestial__whisper {
+    color: rgba(255, 248, 234, 0.5);
+    transform: translateY(0);
+  }
 }
 
 .celestial--constellation {
@@ -1278,10 +1324,16 @@ button {
   object-position: 50% 20%;
 }
 
-.memory-artifact:hover .memory-artifact__media img,
 .memory-artifact.is-active .memory-artifact__media img {
   filter: saturate(1.03) contrast(1.05) brightness(0.96);
   transform: scale(1.035);
+}
+
+@media (hover: hover) {
+  .memory-artifact:hover .memory-artifact__media img {
+    filter: saturate(1.03) contrast(1.05) brightness(0.96);
+    transform: scale(1.035);
+  }
 }
 
 .memory-artifact__media::after {
@@ -2823,7 +2875,8 @@ button {
   }
 
   .celestial__whisper {
-    display: none;
+    width: min(150px, 36vw);
+    font-size: 0.74rem;
   }
 
   .universe-controls {

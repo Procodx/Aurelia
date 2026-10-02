@@ -5,6 +5,7 @@ import { UniverseScene } from "../scenes/universe/UniverseScene";
 import { StardustCursor } from "../features/easter-eggs/StardustCursor";
 import { useAmbientSound } from "../audio/useAmbientSound";
 import { useExperienceStore } from "../store/experienceStore";
+import { requestTiltPermission } from "../utils/deviceTilt";
 
 export default function App() {
   const scene = useExperienceStore((state) => state.scene);
@@ -20,6 +21,7 @@ export default function App() {
 
   const handleEnter = () => {
     void start();
+    void requestTiltPermission();
     enterUniverse();
   };
 

@@ -111,6 +111,18 @@ export function ThreeStarfield({
       pointer.y = (event.clientY / window.innerHeight - 0.5) * 2;
     };
 
+    // Phones have no mouse, so tilting the device moves the parallax instead.
+    // Beta is ~45deg when a phone is held naturally, so centre on that.
+    const handleTilt = (event: DeviceOrientationEvent) => {
+      if (event.gamma === null || event.beta === null) {
+        return;
+      }
+
+      pointer.x = Math.max(-1, Math.min(1, event.gamma / 30));
+      pointer.y = Math.max(-1, Math.min(1, (event.beta - 45) / 30));
+    };
+    const hasTouchOnly = window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+
     let frameId = 0;
     const clock = new THREE.Clock();
     const animate = () => {
@@ -136,13 +148,18 @@ export function ThreeStarfield({
     animate();
     window.addEventListener("resize", resize);
     if (!prefersReducedMotion) {
-      window.addEventListener("pointermove", handlePointerMove);
+      if (hasTouchOnly) {
+        window.addEventListener("deviceorientation", handleTilt);
+      } else {
+        window.addEventListener("pointermove", handlePointerMove);
+      }
     }
 
     return () => {
       window.cancelAnimationFrame(frameId);
       window.removeEventListener("resize", resize);
       window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("deviceorientation", handleTilt);
       geometry.dispose();
       material.dispose();
       renderer.dispose();

@@ -83,8 +83,33 @@ export function StardustCursor({ paused = false }: StardustCursorProps) {
       }
     };
 
+    // Touch has no cursor to trail, so a finger leaves a small burst of
+    // stardust where it lands instead (and a lighter trail while dragging).
+    const isTouch = (event: PointerEvent) => event.pointerType === "touch" || event.pointerType === "pen";
+
+    const pointerDown = (event: PointerEvent) => {
+      if (pausedRef.current || !isTouch(event)) {
+        return;
+      }
+
+      for (let i = 0; i < 7; i += 1) {
+        dust.push({
+          x: event.clientX + (Math.random() - 0.5) * 36,
+          y: event.clientY + (Math.random() - 0.5) * 36,
+          size: Math.random() * 2.4 + 1,
+          life: 1,
+          hue: [42, 220, 274][Math.floor(Math.random() * 3)],
+        });
+      }
+    };
+
     const pointerMove = (event: PointerEvent) => {
       if (pausedRef.current) {
+        return;
+      }
+
+      // Touch pointermove only fires while a finger is down; throttle harder.
+      if (isTouch(event) && performance.now() - lastSpawn < 60) {
         return;
       }
 
@@ -106,12 +131,14 @@ export function StardustCursor({ paused = false }: StardustCursorProps) {
     resize();
     window.addEventListener("resize", resize);
     window.addEventListener("pointermove", pointerMove);
+    window.addEventListener("pointerdown", pointerDown);
     gsap.ticker.add(draw);
 
     return () => {
       gsap.ticker.remove(draw);
       window.removeEventListener("resize", resize);
       window.removeEventListener("pointermove", pointerMove);
+      window.removeEventListener("pointerdown", pointerDown);
     };
   }, []);
 
