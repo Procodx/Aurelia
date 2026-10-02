@@ -124,13 +124,19 @@ export function createHeartChamberPlace({ letters, viewpoint, onRead }: Options)
   };
 
   const origin = viewpoint.position.clone();
-  const horizontal = new THREE.Vector3(-Math.sin(viewpoint.yaw), 0, -Math.cos(viewpoint.yaw));
-  const eyeLevelOffset = Math.sin(viewpoint.pitch);
 
-  // Position on a circle around her, `angle` radians off her line of sight.
-  const around = (angle: number, radius: number) => {
-    const direction = horizontal.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), angle);
-    return origin.clone().addScaledVector(direction, radius).setY(origin.y + eyeLevelOffset * radius);
+  // A point on a sphere around her, `angle` radians to the left of her line of
+  // sight; `dy` lifts it (negative lowers) by that many units at this radius.
+  // True angles keep it exactly where intended even when she arrives looking
+  // steeply up or down.
+  const around = (angle: number, radius: number, dy = 0) => {
+    const pitch = viewpoint.pitch + Math.atan2(dy, radius);
+    const yaw = viewpoint.yaw + angle;
+    return new THREE.Vector3(
+      origin.x - Math.sin(yaw) * Math.cos(pitch) * radius,
+      origin.y + Math.sin(pitch) * radius,
+      origin.z - Math.cos(yaw) * Math.cos(pitch) * radius,
+    );
   };
 
   const makeSheet = (canvas: HTMLCanvasElement, width: number) => {
@@ -189,7 +195,7 @@ export function createHeartChamberPlace({ letters, viewpoint, onRead }: Options)
       // About 24 degrees between cards, so they never overlap.
       const angle = (index - (visible.length - 1) / 2) * 0.42;
       const sheet = makeSheet(drawCard(letter), CARD_WIDTH);
-      sheet.mesh.position.copy(around(angle, CARD_RADIUS)).setY(origin.y + eyeLevelOffset * CARD_RADIUS - SHELF_DROP + Math.abs(angle) * 1.4);
+      sheet.mesh.position.copy(around(angle, CARD_RADIUS, -SHELF_DROP + Math.abs(angle) * 1.4));
       sheet.mesh.lookAt(origin);
       sheet.mesh.userData = { dwell: 1.3, onSelect: () => openLetter(letter) };
       shelfGroup.add(sheet.mesh);
@@ -199,7 +205,7 @@ export function createHeartChamberPlace({ letters, viewpoint, onRead }: Options)
 
   const arrow = (label: string, angle: number, onSelect: () => void) => {
     const sheet = makeSheet(drawButton(label, 300), 2.6);
-    sheet.mesh.position.copy(around(angle, CARD_RADIUS - 1)).setY(origin.y + eyeLevelOffset * CARD_RADIUS - SHELF_DROP);
+    sheet.mesh.position.copy(around(angle, CARD_RADIUS - 1, -SHELF_DROP));
     sheet.mesh.lookAt(origin);
     sheet.mesh.userData = { dwell: 1.1, onSelect };
     sheet.mesh.visible = false;
@@ -241,13 +247,12 @@ export function createHeartChamberPlace({ letters, viewpoint, onRead }: Options)
   group.add(pageSheet.mesh);
 
   const closeButton = arrow("Close letter", 0, () => closeLetter());
-  closeButton.mesh.position.copy(around(0, PAGE_DISTANCE - 1)).setY(pageSheet.mesh.position.y + (PAGE_WIDTH * (900 / 960)) / 2 + 1.6);
+  closeButton.mesh.position.copy(around(0, PAGE_DISTANCE - 1, (PAGE_WIDTH * (900 / 960)) / 2 + 1.6));
   closeButton.mesh.lookAt(origin);
   const nextPage = arrow("next page  ›", -0.62, () => turnPage(1));
   const prevPage = arrow("‹  back", 0.62, () => turnPage(-1));
   for (const sheet of [nextPage, prevPage]) {
-    sheet.mesh.position.setY(pageSheet.mesh.position.y);
-    sheet.mesh.position.copy(around(sheet === nextPage ? -0.62 : 0.62, PAGE_DISTANCE - 0.5)).setY(pageSheet.mesh.position.y);
+    sheet.mesh.position.copy(around(sheet === nextPage ? -0.62 : 0.62, PAGE_DISTANCE - 0.5));
     sheet.mesh.lookAt(origin);
   }
 

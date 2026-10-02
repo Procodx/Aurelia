@@ -110,9 +110,7 @@ export function createGalleryPlace({ items, viewpoint, ambient: ambientOptions, 
   group.add(pageSheet.mesh);
   const pageHeight = PAGE_WIDTH * (PAGE_H / PAGE_W);
 
-  const closeButton = makeButton("Close", 0, PAGE_DISTANCE - 1, 0, () => closeItem());
-  closeButton.mesh.position.setY(pageSheet.mesh.position.y + pageHeight / 2 + 1.6);
-  closeButton.mesh.lookAt(origin);
+  const closeButton = makeButton("Close", 0, PAGE_DISTANCE - 1, pageHeight / 2 + 1.6, () => closeItem());
   const nextPage = makeButton("next page  ›", -0.74, PAGE_DISTANCE - 0.5, 0, () => turnPage(1));
   const prevPage = makeButton("‹  back", 0.74, PAGE_DISTANCE - 0.5, 0, () => turnPage(-1));
   const pageButtons = [closeButton, nextPage, prevPage];

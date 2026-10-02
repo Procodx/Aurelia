@@ -109,14 +109,21 @@ export function createKit(viewpoint: Viewpoint) {
   };
 
   const origin = viewpoint.position.clone();
-  const horizontal = new THREE.Vector3(-Math.sin(viewpoint.yaw), 0, -Math.cos(viewpoint.yaw));
-  const eyeLevelOffset = Math.sin(viewpoint.pitch);
-  const up = new THREE.Vector3(0, 1, 0);
 
-  /** A point on a circle around her, `angle` radians off her line of sight. */
+  /**
+   * A point on a sphere around her. `angle` is how far to the left of her line
+   * of sight (radians); `dy` lifts it by that many world units at this radius
+   * (negative lowers it). Uses true angles, so it stays exactly where intended
+   * relative to her view even when she arrives looking steeply up or down.
+   */
   const around = (angle: number, radius: number, dy = 0) => {
-    const direction = horizontal.clone().applyAxisAngle(up, angle);
-    return origin.clone().addScaledVector(direction, radius).setY(origin.y + eyeLevelOffset * radius + dy);
+    const pitch = viewpoint.pitch + Math.atan2(dy, radius);
+    const yaw = viewpoint.yaw + angle;
+    return new THREE.Vector3(
+      origin.x - Math.sin(yaw) * Math.cos(pitch) * radius,
+      origin.y + Math.sin(pitch) * radius,
+      origin.z - Math.cos(yaw) * Math.cos(pitch) * radius,
+    );
   };
 
   const makeSheet = (canvas: HTMLCanvasElement, width: number): Sheet => {
@@ -137,7 +144,7 @@ export function createKit(viewpoint: Viewpoint) {
     return sheet;
   };
 
-  return { group, track, disposables, origin, horizontal, eyeLevelOffset, around, makeSheet, makeButton };
+  return { group, track, disposables, origin, around, makeSheet, makeButton };
 }
 
 export type Kit = ReturnType<typeof createKit>;
