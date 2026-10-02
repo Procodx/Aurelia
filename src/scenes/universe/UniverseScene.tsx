@@ -400,7 +400,7 @@ export function UniverseScene() {
         transition={{ duration: 1.2, delay: 1.1 }}
       >
         <p>The universe is awake now.</p>
-        <span>Look around. Drift closer. Let the glowing places answer.</span>
+        <span>You float at its heart. Turn around: the worlds circle you. Let the glowing places answer.</span>
       </motion.div>
 
       <div className="universe-controls" aria-label="Universe view controls">

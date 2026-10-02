@@ -4196,3 +4196,37 @@ body.has-interior .revelation {
   pointer-events: none;
   transition: opacity 500ms ease;
 }
+
+/* --- Worlds that are off-screen: a glowing marker on the edge points the way --- */
+
+.world-label.is-edge {
+  max-width: 170px;
+  padding: 6px 10px;
+  gap: 0;
+  opacity: 0.88;
+}
+
+.world-label.is-edge .world-label__whisper {
+  display: none;
+}
+
+.world-label.is-edge .world-label__name {
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+/* The arrow orbits the label, always on the side facing the world. */
+.world-label.is-edge::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  margin: -6px 0 0 -5px;
+  border-style: solid;
+  border-width: 6px 0 6px 11px;
+  border-color: transparent transparent transparent rgba(255, 215, 132, 0.95);
+  filter: drop-shadow(0 0 6px rgba(255, 215, 132, 0.8));
+  transform: rotate(var(--edge-angle, 0rad)) translateX(var(--edge-radius, 62px));
+}

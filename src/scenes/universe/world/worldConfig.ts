@@ -20,11 +20,11 @@ export type WorldObjectDef = {
 };
 
 export const worldObjects: WorldObjectDef[] = [
-  { id: "heart-chamber", orbitRadius: 34, orbitDuration: 72, phase: 4.1, tilt: 0.22, radius: 6.6 },
-  { id: "memory-constellation", orbitRadius: 48, orbitDuration: 80, phase: 0.9, tilt: -0.18, radius: 8.4 },
-  { id: "garden-planet", orbitRadius: 58, orbitDuration: 88, phase: 2.8, tilt: 0.3, radius: 8 },
-  { id: "echo-moon", orbitRadius: 70, orbitDuration: 104, phase: 5.0, tilt: -0.26, radius: 5.6 },
-  { id: "future-stars", orbitRadius: 80, orbitDuration: 120, phase: 1.9, tilt: 0.14, radius: 7 },
+  { id: "heart-chamber", orbitRadius: 54, orbitDuration: 72, phase: 4.0, tilt: 0.45, radius: 8.4 },
+  { id: "memory-constellation", orbitRadius: 66, orbitDuration: 80, phase: 5.2, tilt: -0.5, radius: 10.4 },
+  { id: "garden-planet", orbitRadius: 78, orbitDuration: 88, phase: 2.4, tilt: 0.62, radius: 10 },
+  { id: "echo-moon", orbitRadius: 92, orbitDuration: 104, phase: 0.3, tilt: -0.4, radius: 7.4 },
+  { id: "future-stars", orbitRadius: 108, orbitDuration: 120, phase: 3.6, tilt: 0.3, radius: 9 },
 ];
 
 export const SUN_RADIUS = 9.5;

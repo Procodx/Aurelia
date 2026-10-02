@@ -85,13 +85,24 @@ export const UniverseWorld = forwardRef<UniverseWorldHandle, UniverseWorldProps>
         hoverRef.current = id;
         labelRefs.current.forEach((element, key) => element.classList.toggle("is-hovered", key === id));
       },
-      positionLabel: (id, x, y, visible) => {
+      positionLabel: (id, x, y, visible, edge) => {
         const element = labelRefs.current.get(id);
         if (!element) {
           return;
         }
-        element.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) translate(-50%, 0)`;
+        // Worlds on screen hang their name below them; off-screen ones sit on the
+        // screen edge with an arrow pointing the way.
+        element.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) translate(-50%, ${edge ? "-50%" : "0"})`;
         element.style.visibility = visible ? "visible" : "hidden";
+        element.classList.toggle("is-edge", Boolean(edge));
+        if (edge) {
+          element.style.setProperty("--edge-angle", `${edge.angle}rad`);
+          // Keep the arrow just outside the name, whatever its length.
+          if (!element.dataset.halfWidth) {
+            element.dataset.halfWidth = String(Math.round(element.offsetWidth / 2) + 8);
+          }
+          element.style.setProperty("--edge-radius", `${element.dataset.halfWidth}px`);
+        }
       },
     });
     controllerRef.current = controller;

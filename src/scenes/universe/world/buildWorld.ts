@@ -21,7 +21,11 @@ export type WorldOptions = {
   /** Gazed at the floating Return / Exit button in VR. */
   onDock: () => void;
   /** Called every frame so DOM labels can follow their planets. */
-  positionLabel: (id: WorldObjectId | "sun", x: number, y: number, visible: boolean) => void;
+  /**
+   * `edge` is set when the world is off-screen (behind her, above, to the side):
+   * the label is then pinned to the screen edge, pointing the way, `angle` radians.
+   */
+  positionLabel: (id: WorldObjectId | "sun", x: number, y: number, visible: boolean, edge?: { angle: number } | null) => void;
 };
 
 export type WorldController = {
@@ -48,7 +52,7 @@ export type WorldController = {
 // Everything pinned to the viewer sits at the stereo convergence distance, so
 // both eyes see it at the same spot (no double vision).
 const VR_UI_DISTANCE = 30;
-const MIN_DISTANCE = 22;
+const MIN_DISTANCE = 14;
 const MAX_DISTANCE = 175;
 
 function atmosphereMaterial(color: string, strength = 1.1, power = 2.6) {
@@ -469,10 +473,13 @@ export function createWorld(options: WorldOptions): WorldController {
   scene.add(dock);
 
   // ---------- Camera rig ----------
-  const pose = { x: 0, y: 38, z: 98, yaw: 0, pitch: -0.37 };
+  // She floats in the middle of the system, near the sun, with the worlds circling her.
+  const pose = { x: 0, y: 2, z: 38, yaw: 0, pitch: 0 };
   const homePose = { ...pose };
   let tiltYaw = 0;
   let tiltPitch = 0;
+  // On arrival the view slowly sweeps round so she sees worlds circle her; any touch ends it.
+  let introSweepDone = false;
   let velYaw = 0;
   let velPitch = 0;
   let orbitTime = 0;
@@ -505,7 +512,7 @@ export function createWorld(options: WorldOptions): WorldController {
   };
 
   // VR state
-  const vrHome = { x: 0, y: 18, z: 78, yaw: 0, pitch: -0.1 };
+  const vrHome = { x: 0, y: 2, z: 38, yaw: 0, pitch: 0 };
   let vr = false;
   let stereo: StereoRenderer | null = null;
   let head: HeadTracker | null = null;
@@ -542,9 +549,8 @@ export function createWorld(options: WorldOptions): WorldController {
     camera.fov = portrait ? 74 : 60;
     camera.updateProjectionMatrix();
 
-    homePose.z = portrait ? 128 : 98;
-    homePose.y = portrait ? 46 : 38;
-    homePose.pitch = -Math.atan2(homePose.y, homePose.z);
+    // The home view is the same everywhere: near the sun, looking at it.
+    void portrait;
     if (!flying && !frozen) {
       pose.z = Math.min(Math.max(pose.z, MIN_DISTANCE), MAX_DISTANCE);
     }
@@ -574,6 +580,7 @@ export function createWorld(options: WorldOptions): WorldController {
   };
 
   const dolly = (amount: number) => {
+    introSweepDone = true;
     if (flying || frozen || vr) {
       return;
     }
@@ -818,6 +825,7 @@ export function createWorld(options: WorldOptions): WorldController {
     if (flying || (frozen && !inside) || vr) {
       return;
     }
+    introSweepDone = true;
     pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
     canvas.setPointerCapture(event.pointerId);
     if (pointers.size === 1) {
@@ -882,6 +890,7 @@ export function createWorld(options: WorldOptions): WorldController {
 
   const onWheel = (event: WheelEvent) => {
     event.preventDefault();
+    introSweepDone = true;
     if (vr) {
       return;
     }
@@ -1041,8 +1050,31 @@ export function createWorld(options: WorldOptions): WorldController {
     projected.copy(world);
     projected.y += lift;
     projected.project(camera);
-    const visible = projected.z < 1 && Math.abs(projected.x) < 1.25 && Math.abs(projected.y) < 1.25;
-    options.positionLabel(id, (projected.x * 0.5 + 0.5) * canvas.clientWidth, (-projected.y * 0.5 + 0.5) * canvas.clientHeight, visible);
+    const onScreen = projected.z < 1 && Math.abs(projected.x) < 0.9 && Math.abs(projected.y) < 0.82;
+    if (onScreen) {
+      options.positionLabel(id, (projected.x * 0.5 + 0.5) * canvas.clientWidth, (-projected.y * 0.5 + 0.5) * canvas.clientHeight, true, null);
+      return;
+    }
+    if (id === "sun") {
+      options.positionLabel(id, 0, 0, false, null);
+      return;
+    }
+
+    // Off-screen: pin it to the edge of the view, pointing towards it.
+    let dx = projected.x;
+    let dy = projected.y;
+    if (projected.z >= 1) {
+      // Behind her: the projection is mirrored.
+      dx = -dx;
+      dy = -dy;
+      if (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) {
+        dy = -1;
+      }
+    }
+    const scale = Math.min(0.6 / Math.max(Math.abs(dx), 1e-4), 0.78 / Math.max(Math.abs(dy), 1e-4));
+    const ex = dx * scale;
+    const ey = dy * scale;
+    options.positionLabel(id, (ex * 0.5 + 0.5) * canvas.clientWidth, (-ey * 0.5 + 0.5) * canvas.clientHeight, true, { angle: Math.atan2(-dy, dx) });
   };
 
   const animate = () => {
@@ -1162,7 +1194,13 @@ export function createWorld(options: WorldOptions): WorldController {
     // A tiny breathing drift so the viewer always feels suspended in space.
     const bob = reducedMotion || flying || frozen ? 0 : Math.sin(elapsed * 0.45) * 0.35;
     camera.position.set(pose.x, pose.y + bob, pose.z);
-    camera.rotation.set(pose.pitch + tiltPitch, pose.yaw + tiltYaw, 0);
+    // The arrival sweep: a slow turn left and right (fades out, and stops at once on any touch).
+    const sweepWindow = 14;
+    const sweep =
+      introSweepDone || reducedMotion || flying || frozen || elapsed > sweepWindow
+        ? 0
+        : 0.7 * Math.sin(elapsed * 0.55) * Math.min(elapsed / 2, 1) * Math.min((sweepWindow - elapsed) / 3, 1);
+    camera.rotation.set(pose.pitch + tiltPitch, pose.yaw + tiltYaw + sweep, 0);
 
     interior?.update(delta, elapsed);
     renderer.render(activeScene, camera);
