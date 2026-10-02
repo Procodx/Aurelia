@@ -3990,3 +3990,39 @@ select:focus-visible,
     font-size: clamp(1.2rem, 6vh, 1.6rem);
   }
 }
+
+/* The stage is only ~320px wide beside the star map in landscape, so stack
+   its photo above its text instead of squeezing the copy into a sliver. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .memory-stage {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    overflow: visible;
+  }
+
+  .memory-stage .memory-stage__media {
+    padding: 12px;
+  }
+
+  .memory-stage--portrait .memory-stage__media img,
+  .memory-stage--chat .memory-stage__media img {
+    height: clamp(140px, 38vh, 220px);
+  }
+
+  .memory-stage .memory-stage__copy {
+    align-self: start;
+    padding: 14px 16px;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 520px) {
+  .memory-experience {
+    grid-template-rows: auto;
+    align-items: start;
+  }
+
+  .memory-stage .memory-stage__media {
+    overflow: visible;
+    min-height: auto;
+  }
+}
