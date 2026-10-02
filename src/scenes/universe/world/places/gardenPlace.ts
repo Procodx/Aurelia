@@ -49,7 +49,13 @@ function toItem(compliment: ComplimentImage, index: number): GalleryItem {
     id: compliment.id,
     pageCount: 2,
     paintCard: (ctx) => {
-      // The card is just a glowing flower with its caption - no panel behind it.
+      // A soft dark halo keeps the flower readable against the bright planet behind it.
+      const halo = ctx.createRadialGradient(CARD_W / 2, 190, 20, CARD_W / 2, 190, 300);
+      halo.addColorStop(0, "rgba(12, 8, 34, 0.7)");
+      halo.addColorStop(0.65, "rgba(12, 8, 34, 0.45)");
+      halo.addColorStop(1, "rgba(12, 8, 34, 0)");
+      ctx.fillStyle = halo;
+      ctx.fillRect(0, 0, CARD_W, CARD_H);
       drawFlower(ctx, CARD_W / 2, 170, 150, bloom.petal, bloom.core);
       ctx.textAlign = "center";
       ctx.shadowColor = "rgba(0, 0, 0, 0.9)";

@@ -88,12 +88,14 @@ function paintTitle(canvas: HTMLCanvasElement, track: EchoTrack, large = false) 
   ctx.shadowColor = "rgba(0, 0, 0, 0.9)";
   ctx.shadowBlur = 10;
   ctx.fillStyle = "#fff6e4";
-  ctx.font = `${large ? 62 : 46}px Georgia, "Times New Roman", serif`;
-  const lines = wrapLines(ctx, track.title, canvas.width - 60).slice(0, 2);
-  lines.forEach((line, index) => ctx.fillText(line, canvas.width / 2, (large ? 76 : 58) + index * (large ? 70 : 52)));
+  ctx.font = `${large ? 62 : 56}px Georgia, "Times New Roman", serif`;
+  // Strip the "(Official Video)" style suffixes - they only add clutter in VR.
+  const cleanTitle = track.title.replace(/\s*\((official|lyrics?|lyric video)[^)]*\)/gi, "").trim() || track.title;
+  const lines = wrapLines(ctx, cleanTitle, canvas.width - 60).slice(0, 2);
+  lines.forEach((line, index) => ctx.fillText(line, canvas.width / 2, (large ? 76 : 62) + index * (large ? 70 : 62)));
   ctx.fillStyle = "rgba(255, 214, 140, 0.95)";
-  ctx.font = `${large ? 40 : 32}px Georgia, serif`;
-  ctx.fillText(track.artist, canvas.width / 2, (large ? 76 : 58) + lines.length * (large ? 70 : 52) + 6);
+  ctx.font = "40px Georgia, serif";
+  ctx.fillText(track.artist, canvas.width / 2, (large ? 76 : 62) + lines.length * (large ? 70 : 62) + 8);
   ctx.shadowBlur = 0;
 }
 
@@ -175,8 +177,8 @@ export function createEchoMoonPlace({ tracks, viewpoint, audio }: Options): VRPl
       titleCanvas.width = 640;
       titleCanvas.height = 190;
       paintTitle(titleCanvas, item);
-      const titleSheet = makeSheet(titleCanvas, 5.6);
-      titleSheet.mesh.position.set(0, -3.9, 0);
+      const titleSheet = makeSheet(titleCanvas, 6.4);
+      titleSheet.mesh.position.set(0, -3.5, 0);
 
       const pivot = new THREE.Group();
       pivot.position.copy(around(angle, DISC_RADIUS_SHELF, -SHELF_DROP + Math.abs(angle) * 1.2));
@@ -199,11 +201,11 @@ export function createEchoMoonPlace({ tracks, viewpoint, audio }: Options): VRPl
   playerGroup.visible = false;
   group.add(playerGroup);
 
-  const playerCenter = around(0, 13);
+  const playerCenter = around(0, 13, 1.4);
   const bigCanvas = document.createElement("canvas");
   bigCanvas.width = 512;
   bigCanvas.height = 512;
-  const bigDisc = makeSheet(bigCanvas, 7);
+  const bigDisc = makeSheet(bigCanvas, 5.4);
   bigDisc.mesh.userData = { dwell: 0.9, onSelect: () => togglePlay() };
   const discPivot = new THREE.Group();
   discPivot.position.copy(playerCenter);
@@ -232,16 +234,16 @@ export function createEchoMoonPlace({ tracks, viewpoint, audio }: Options): VRPl
   const titleCanvas = document.createElement("canvas");
   titleCanvas.width = 900;
   titleCanvas.height = 230;
-  const titleSheet = makeSheet(titleCanvas, 9);
-  titleSheet.mesh.position.copy(around(0, 13, -6.9));
+  const titleSheet = makeSheet(titleCanvas, 8);
+  titleSheet.mesh.position.copy(around(0, 13, 1.4 - 5.7));
   titleSheet.mesh.lookAt(origin);
   playerGroup.add(titleSheet.mesh);
 
   const allSongs = makeButton("All songs", 0, 12, 0, () => showShelf(), 1.1, 3);
-  allSongs.mesh.position.copy(around(0, 12, 6.2));
+  allSongs.mesh.position.copy(around(0, 12, 1.4 + 6.1));
   allSongs.mesh.lookAt(origin);
-  const prevTrack = makeButton("‹  previous", 0.62, 12.5, 0, () => playTrack((currentIndex - 1 + tracks.length) % tracks.length));
-  const nextTrack = makeButton("next  ›", -0.62, 12.5, 0, () => playTrack((currentIndex + 1) % tracks.length));
+  const prevTrack = makeButton("‹  previous", 0.62, 12.5, 1.4, () => playTrack((currentIndex - 1 + tracks.length) % tracks.length));
+  const nextTrack = makeButton("next  ›", -0.62, 12.5, 1.4, () => playTrack((currentIndex + 1) % tracks.length));
   const playerButtons = [allSongs, prevTrack, nextTrack];
 
   const updateMode = () => {
@@ -343,10 +345,10 @@ export function createEchoMoonPlace({ tracks, viewpoint, audio }: Options): VRPl
           const heard = analyserEntry && live ? analyserEntry.data[bin] / 255 : live ? 0.35 + 0.3 * Math.sin(age * 4 + i * 0.6) : 0;
           barLevels[i] += (heard - barLevels[i]) * Math.min(delta * 12, 1);
           const angle = (i / BARS) * Math.PI * 2;
-          const radius = 3.8;
+          const radius = 3.1;
           posVec.set(Math.cos(angle) * radius, Math.sin(angle) * radius, 0);
           quat.setFromAxisAngle(zAxis, angle - Math.PI / 2);
-          scaleVec.set(1, 0.2 + barLevels[i] * 2.6, 1);
+          scaleVec.set(1, 0.15 + barLevels[i] * 1.6, 1);
           matrix.compose(posVec, quat, scaleVec);
           bars.setMatrixAt(i, matrix);
         }
@@ -363,7 +365,7 @@ export function createEchoMoonPlace({ tracks, viewpoint, audio }: Options): VRPl
             progressMesh = null;
           }
           if (step > 0) {
-            progressMesh = new THREE.Mesh(new THREE.RingGeometry(3.35, 3.5, 96, 1, Math.PI / 2, -(step / 120) * Math.PI * 2), progressMaterial);
+            progressMesh = new THREE.Mesh(new THREE.RingGeometry(2.8, 2.92, 96, 1, Math.PI / 2, -(step / 120) * Math.PI * 2), progressMaterial);
             discPivot.add(progressMesh);
           }
         }
