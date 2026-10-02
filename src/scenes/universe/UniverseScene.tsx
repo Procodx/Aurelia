@@ -15,9 +15,11 @@ const loadBlooming = () => import("../../features/blooming/BloomingPlanet");
 const loadEcho = () => import("../../features/echo/EchoMoon");
 const loadHeart = () => import("../../features/heart/HeartChamber");
 const loadTimeline = () => import("../../features/memories/MemoryTimeline");
+const loadStars = () => import("../../features/stars/TomorrowsStars");
 const BloomingPlanet = lazy(() => loadBlooming().then((m) => ({ default: m.BloomingPlanet })));
 const EchoMoon = lazy(() => loadEcho().then((m) => ({ default: m.EchoMoon })));
 const HeartChamber = lazy(() => loadHeart().then((m) => ({ default: m.HeartChamber })));
+const TomorrowsStars = lazy(() => loadStars().then((m) => ({ default: m.TomorrowsStars })));
 const MemoryTimeline = lazy(() => loadTimeline().then((m) => ({ default: m.MemoryTimeline })));
 
 type CelestialObject = {
@@ -107,7 +109,7 @@ export function UniverseScene() {
       return;
     }
 
-    const warm = () => void Promise.all([loadBlooming(), loadEcho(), loadHeart(), loadTimeline()]);
+    const warm = () => void Promise.all([loadBlooming(), loadEcho(), loadHeart(), loadTimeline(), loadStars()]);
     if (typeof window.requestIdleCallback === "function") {
       const id = window.requestIdleCallback(warm, { timeout: 6000 });
       return () => window.cancelIdleCallback(id);
@@ -244,6 +246,12 @@ export function UniverseScene() {
         import("../../features/memories/memoryData"),
       ]);
       place = createMemoriesPlace(memoryMoments, viewpoint);
+    } else if (id === "future-stars") {
+      const [{ createStarsPlace }, { fetchStars }] = await Promise.all([
+        import("./world/places/starsPlace"),
+        import("../../features/stars/starsApi"),
+      ]);
+      place = createStarsPlace((await fetchStars()).stars, viewpoint);
     } else if (id === "garden-planet") {
       const { createGardenPlace } = await import("./world/places/gardenPlace");
       place = await createGardenPlace(viewpoint);
@@ -451,8 +459,15 @@ export function UniverseScene() {
           </Suspense>
         )}
 
+        {activeObject?.id === "future-stars" && (
+          <Suspense key="future-stars" fallback={<SkyLoader inline />}>
+            <TomorrowsStars onClose={clearFocus} />
+          </Suspense>
+        )}
+
         {activeObject &&
           activeObject.id !== "memory-constellation" &&
+          activeObject.id !== "future-stars" &&
           activeObject.id !== "garden-planet" &&
           activeObject.id !== "echo-moon" &&
           activeObject.id !== "heart-chamber" && (
