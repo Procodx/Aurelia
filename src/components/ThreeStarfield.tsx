@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
+import { useMediaQuery } from "../utils/useMediaQuery";
 
 type ThreeStarfieldProps = {
   density?: number;
@@ -25,6 +26,7 @@ export function ThreeStarfield({
 }: ThreeStarfieldProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const pausedRef = useRef(paused);
+  const isNarrowViewport = useMediaQuery("(max-width: 760px)");
 
   useEffect(() => {
     pausedRef.current = paused;
@@ -52,7 +54,6 @@ export function ThreeStarfield({
     // laptop GPU, so give it fewer particles and a lower pixel ratio cap
     // instead of the same fixed cost for every visitor.
     const isLowPower = (navigator.hardwareConcurrency ?? 8) <= 4;
-    const isNarrowViewport = window.matchMedia("(max-width: 760px)").matches;
     const isConstrained = isLowPower || isNarrowViewport;
     const effectiveDensity = isConstrained ? Math.round(density * 0.55) : density;
     const maxPixelRatio = intensity === "awake" ? (isConstrained ? 1 : 1.25) : isConstrained ? 1.15 : 1.5;
@@ -111,6 +112,18 @@ export function ThreeStarfield({
       pointer.y = (event.clientY / window.innerHeight - 0.5) * 2;
     };
 
+    // Phones have no mouse, so tilting the device moves the parallax instead.
+    // Beta is ~45deg when a phone is held naturally, so centre on that.
+    const handleTilt = (event: DeviceOrientationEvent) => {
+      if (event.gamma === null || event.beta === null) {
+        return;
+      }
+
+      pointer.x = Math.max(-1, Math.min(1, event.gamma / 30));
+      pointer.y = Math.max(-1, Math.min(1, (event.beta - 45) / 30));
+    };
+    const hasTouchOnly = window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+
     let frameId = 0;
     const clock = new THREE.Clock();
     const animate = () => {
@@ -136,18 +149,23 @@ export function ThreeStarfield({
     animate();
     window.addEventListener("resize", resize);
     if (!prefersReducedMotion) {
-      window.addEventListener("pointermove", handlePointerMove);
+      if (hasTouchOnly) {
+        window.addEventListener("deviceorientation", handleTilt);
+      } else {
+        window.addEventListener("pointermove", handlePointerMove);
+      }
     }
 
     return () => {
       window.cancelAnimationFrame(frameId);
       window.removeEventListener("resize", resize);
       window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("deviceorientation", handleTilt);
       geometry.dispose();
       material.dispose();
       renderer.dispose();
     };
-  }, [density, depth, intensity]);
+  }, [density, depth, intensity, isNarrowViewport]);
 
   return <canvas ref={canvasRef} className={className ?? "three-starfield"} aria-hidden="true" />;
 }

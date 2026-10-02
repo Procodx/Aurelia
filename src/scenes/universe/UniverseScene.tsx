@@ -1,16 +1,24 @@
-import { type CSSProperties, type PointerEvent, type WheelEvent, useEffect, useRef, useState } from "react";
+import { type CSSProperties, type PointerEvent, type WheelEvent, lazy, Suspense, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useMotionValue } from "framer-motion";
 import gsap from "gsap";
 import { playPlanetEnter } from "../../animations/planetEnter";
 import { ThreeStarfield } from "../../components/ThreeStarfield";
-import { BloomingPlanet } from "../../features/blooming/BloomingPlanet";
-import { EchoMoon } from "../../features/echo/EchoMoon";
-import { HeartChamber } from "../../features/heart/HeartChamber";
+import { SkyLoader } from "../../components/SkyLoader";
 import { fetchLetters } from "../../features/heart/heartLetters";
 import { getStoredIdentity } from "../../features/gate/VisitorIdentity";
 import { MemoryConstellation } from "../../features/memories/MemoryConstellation";
-import { MemoryTimeline } from "../../features/memories/MemoryTimeline";
 import { useExperienceStore } from "../../store/experienceStore";
+
+// Each planet panel is its own chunk, so the first paint of the universe
+// doesn't download the music player, puzzles, 3D star map and so on.
+const loadBlooming = () => import("../../features/blooming/BloomingPlanet");
+const loadEcho = () => import("../../features/echo/EchoMoon");
+const loadHeart = () => import("../../features/heart/HeartChamber");
+const loadTimeline = () => import("../../features/memories/MemoryTimeline");
+const BloomingPlanet = lazy(() => loadBlooming().then((m) => ({ default: m.BloomingPlanet })));
+const EchoMoon = lazy(() => loadEcho().then((m) => ({ default: m.EchoMoon })));
+const HeartChamber = lazy(() => loadHeart().then((m) => ({ default: m.HeartChamber })));
+const MemoryTimeline = lazy(() => loadTimeline().then((m) => ({ default: m.MemoryTimeline })));
 
 type CelestialObject = {
   id: "memory-constellation" | "garden-planet" | "echo-moon" | "heart-chamber" | "future-stars";
@@ -195,11 +203,47 @@ export function UniverseScene() {
   // re-rendered the whole scene (all 5 planets, the SVG orbit rings, etc.) —
   // that was the main source of the lag while panning the sky.
   const zoomMV = useMotionValue(getViewSettings().defaultZoom);
+
+  // Warm the panel chunks once the sky has settled, so tapping a planet
+  // opens instantly. Skipped on data-saver connections.
+  useEffect(() => {
+    const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
+    if (connection?.saveData) {
+      return;
+    }
+
+    const warm = () => void Promise.all([loadBlooming(), loadEcho(), loadHeart(), loadTimeline()]);
+    if (typeof window.requestIdleCallback === "function") {
+      const id = window.requestIdleCallback(warm, { timeout: 6000 });
+      return () => window.cancelIdleCallback(id);
+    }
+
+    const id = window.setTimeout(warm, 3000);
+    return () => window.clearTimeout(id);
+  }, []);
   const panX = useMotionValue(0);
+
+  // Escape closes whichever planet panel is open (keyboard / tablet keyboards).
+  useEffect(() => {
+    if (!activeObjectId) {
+      return;
+    }
+
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        clearFocus();
+      }
+    };
+
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [activeObjectId, clearFocus]);
   const panY = useMotionValue(0);
   const [transitioningObjectId, setTransitioningObjectId] = useState<CelestialObject["id"] | null>(null);
   const [visitedObjectIds, setVisitedObjectIds] = useState<Set<CelestialObject["id"]>>(() => new Set());
   const dragRef = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
+  const pointersRef = useRef(new Map<number, { x: number; y: number }>());
+  const pinchRef = useRef<{ distance: number; zoom: number } | null>(null);
   const universeRef = useRef<HTMLElement | null>(null);
   const celestialLayerRef = useRef<HTMLDivElement | null>(null);
   const warpRef = useRef<HTMLDivElement | null>(null);
@@ -253,24 +297,49 @@ export function UniverseScene() {
     return () => gsap.ticker.remove(tick);
   }, []);
 
- const handlePointerDown = (event: PointerEvent<HTMLElement>) => {
-  if (
-    activeObjectId ||
-    transitioningObjectId ||
-    (event.target as HTMLElement).closest("button, aside, .universe-controls")
-  ) {
-    return;
-  }
+  const handlePointerDown = (event: PointerEvent<HTMLElement>) => {
+    if (
+      activeObjectId ||
+      transitioningObjectId ||
+      (event.target as HTMLElement).closest("button, aside, .universe-controls")
+    ) {
+      return;
+    }
 
-  dragRef.current = {
-    x: event.clientX,
-    y: event.clientY,
-    panX: panX.get(),
-    panY: panY.get(),
+    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    event.currentTarget.setPointerCapture(event.pointerId);
+
+    if (pointersRef.current.size === 2) {
+      // Second finger down: switch from panning to pinch-zooming.
+      dragRef.current = null;
+      const [a, b] = [...pointersRef.current.values()];
+      pinchRef.current = { distance: Math.hypot(a.x - b.x, a.y - b.y) || 1, zoom: zoomMV.get() };
+      return;
+    }
+
+    dragRef.current = {
+      x: event.clientX,
+      y: event.clientY,
+      panX: panX.get(),
+      panY: panY.get(),
+    };
   };
-  event.currentTarget.setPointerCapture(event.pointerId);
-};
+
   const handlePointerMove = (event: PointerEvent<HTMLElement>) => {
+    if (!pointersRef.current.has(event.pointerId)) {
+      return;
+    }
+
+    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+    if (pinchRef.current && pointersRef.current.size >= 2) {
+      const [a, b] = [...pointersRef.current.values()];
+      const viewSettings = getViewSettings();
+      const scale = (Math.hypot(a.x - b.x, a.y - b.y) || 1) / pinchRef.current.distance;
+      zoomMV.set(clamp(pinchRef.current.zoom * scale, viewSettings.minZoom, viewSettings.maxZoom));
+      return;
+    }
+
     if (!dragRef.current) {
       return;
     }
@@ -280,7 +349,15 @@ export function UniverseScene() {
   };
 
   const handlePointerUp = (event: PointerEvent<HTMLElement>) => {
-    dragRef.current = null;
+    pointersRef.current.delete(event.pointerId);
+    pinchRef.current = null;
+
+    // If one finger stays down after a pinch, carry on panning from where it is.
+    const [remaining] = [...pointersRef.current.values()];
+    dragRef.current = remaining
+      ? { x: remaining.x, y: remaining.y, panX: panX.get(), panY: panY.get() }
+      : null;
+
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
@@ -541,10 +618,26 @@ export function UniverseScene() {
       </motion.div>
 
       <AnimatePresence>
-        {activeObject?.id === "memory-constellation" && <MemoryTimeline onClose={clearFocus} />}
-        {activeObject?.id === "garden-planet" && <BloomingPlanet onClose={clearFocus} />}
-        {activeObject?.id === "echo-moon" && <EchoMoon onClose={clearFocus} />}
-        {activeObject?.id === "heart-chamber" && <HeartChamber onClose={clearFocus} />}
+        {activeObject?.id === "memory-constellation" && (
+          <Suspense key="memory-constellation" fallback={<SkyLoader inline />}>
+            <MemoryTimeline onClose={clearFocus} />
+          </Suspense>
+        )}
+        {activeObject?.id === "garden-planet" && (
+          <Suspense key="garden-planet" fallback={<SkyLoader inline />}>
+            <BloomingPlanet onClose={clearFocus} />
+          </Suspense>
+        )}
+        {activeObject?.id === "echo-moon" && (
+          <Suspense key="echo-moon" fallback={<SkyLoader inline />}>
+            <EchoMoon onClose={clearFocus} />
+          </Suspense>
+        )}
+        {activeObject?.id === "heart-chamber" && (
+          <Suspense key="heart-chamber" fallback={<SkyLoader inline />}>
+            <HeartChamber onClose={clearFocus} />
+          </Suspense>
+        )}
 
         {activeObject &&
           activeObject.id !== "memory-constellation" &&

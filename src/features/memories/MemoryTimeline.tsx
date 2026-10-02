@@ -43,7 +43,7 @@ export function MemoryTimeline({ onClose }: MemoryTimelineProps) {
         >
           <div className="memory-stage__media">
             {activeMemory.imageUrl ? (
-              <img src={activeMemory.imageUrl} alt="" />
+              <img src={activeMemory.imageUrl} alt="" decoding="async" />
             ) : (
               <div className="memory-artifact__placeholder">
                 <span />

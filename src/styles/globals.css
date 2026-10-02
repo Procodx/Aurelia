@@ -16,6 +16,9 @@ body,
 body {
   font-family: var(--font-body);
   color: var(--ink);
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
 }
 
 button,
@@ -628,10 +631,39 @@ button {
   transition: opacity 900ms ease, transform 900ms ease;
 }
 
-.celestial:hover .celestial__aura,
 .celestial:focus-visible .celestial__aura {
   opacity: 0.9;
   transform: scale(1.18);
+}
+
+@media (hover: hover) {
+  .celestial:hover .celestial__aura {
+    opacity: 0.9;
+    transform: scale(1.18);
+  }
+}
+
+/* Touch screens can't hover, so the aura breathes on its own and a tap
+   (:active) brightens it. */
+@media (hover: none) {
+  .celestial__aura {
+    animation: celestial-aura-breathe 5.5s ease-in-out infinite;
+  }
+
+  .celestial:active .celestial__aura {
+    opacity: 0.9;
+    transform: scale(1.18);
+  }
+}
+
+@keyframes celestial-aura-breathe {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.8;
+  }
 }
 
 .celestial__name {
@@ -657,10 +689,24 @@ button {
   transition: color 700ms ease, transform 700ms ease;
 }
 
-.celestial:hover .celestial__whisper,
 .celestial:focus-visible .celestial__whisper {
   color: rgba(255, 248, 234, 0.72);
   transform: translateY(0);
+}
+
+@media (hover: hover) {
+  .celestial:hover .celestial__whisper {
+    color: rgba(255, 248, 234, 0.72);
+    transform: translateY(0);
+  }
+}
+
+/* No hover on touch: let the whispers fade in softly on their own. */
+@media (hover: none) {
+  .celestial__whisper {
+    color: rgba(255, 248, 234, 0.5);
+    transform: translateY(0);
+  }
 }
 
 .celestial--constellation {
@@ -1278,10 +1324,16 @@ button {
   object-position: 50% 20%;
 }
 
-.memory-artifact:hover .memory-artifact__media img,
 .memory-artifact.is-active .memory-artifact__media img {
   filter: saturate(1.03) contrast(1.05) brightness(0.96);
   transform: scale(1.035);
+}
+
+@media (hover: hover) {
+  .memory-artifact:hover .memory-artifact__media img {
+    filter: saturate(1.03) contrast(1.05) brightness(0.96);
+    transform: scale(1.035);
+  }
 }
 
 .memory-artifact__media::after {
@@ -2823,7 +2875,8 @@ button {
   }
 
   .celestial__whisper {
-    display: none;
+    width: min(150px, 36vw);
+    font-size: 0.74rem;
   }
 
   .universe-controls {
@@ -3748,4 +3801,228 @@ button {
 
 .heart-compose__status.is-error {
   color: var(--rose);
+}
+.sky-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 18px;
+  background: var(--night);
+  color: rgba(255, 248, 234, 0.7);
+  animation: sky-loader-in 900ms ease both;
+}
+
+.sky-loader--inline {
+  background: rgba(2, 3, 10, 0.72);
+  backdrop-filter: blur(6px);
+}
+
+.sky-loader p {
+  margin: 0;
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+}
+
+.sky-loader__star {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff4c8;
+  box-shadow: 0 0 22px 6px rgba(255, 215, 132, 0.55);
+  animation: sky-loader-pulse 2.2s ease-in-out infinite;
+}
+
+@keyframes sky-loader-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes sky-loader-pulse {
+  50% {
+    transform: scale(1.5);
+    opacity: 0.7;
+  }
+}
+
+/* --- Touch ergonomics, focus, tablet and landscape polish --- */
+
+/* Comfortable (>= 44px) targets on touch screens. */
+@media (pointer: coarse) {
+  .universe-controls button {
+    min-width: 44px;
+    height: 44px;
+  }
+
+  .universe-controls button:last-child {
+    min-width: 64px;
+  }
+
+  .sound-orb {
+    width: 48px;
+    height: 48px;
+  }
+
+  .celestial {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  button {
+    touch-action: manipulation;
+  }
+
+  [class*="__close"] {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+/* One consistent keyboard focus ring everywhere (keyboards on tablets too). */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid rgba(255, 215, 132, 0.78);
+  outline-offset: 3px;
+}
+
+/* Tablets in portrait sit between the phone and desktop layouts. */
+@media (min-width: 761px) and (max-width: 1120px) and (orientation: portrait) {
+  .universe__invitation p {
+    font-size: clamp(2rem, 6vw, 2.9rem);
+  }
+
+  .universe__camera {
+    transform-origin: 50% 50%;
+  }
+}
+
+/* Phones (and small tablets) held sideways: very little height to spare. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .landing h1 {
+    font-size: clamp(1.5rem, 6vh, 2.2rem);
+  }
+
+  .universe__invitation {
+    top: max(10px, env(safe-area-inset-top));
+    left: max(16px, env(safe-area-inset-left));
+  }
+
+  .universe__invitation p {
+    max-width: 320px;
+    font-size: clamp(1.2rem, 5.5vh, 1.7rem);
+  }
+
+  .universe__invitation span {
+    max-width: 280px;
+    margin-top: 4px;
+    font-size: 0.74rem;
+  }
+
+  .universe-controls {
+    right: max(14px, env(safe-area-inset-right));
+    bottom: max(10px, env(safe-area-inset-bottom));
+  }
+
+  .sound-orb {
+    right: max(14px, env(safe-area-inset-right));
+    bottom: 72px;
+  }
+
+  .revelation h2,
+  .blooming-planet__header h2,
+  .memory-timeline__header h2,
+  .heart-chamber__intro h2,
+  .heart-chamber__inside-header h2,
+  .echo-moon__header h2 {
+    font-size: clamp(1.4rem, 7vh, 2rem);
+    line-height: 1.12;
+  }
+
+  .blooming-planet,
+  .memory-timeline,
+  .heart-chamber,
+  .echo-moon {
+    inset: 8px max(10px, env(safe-area-inset-right)) 8px max(10px, env(safe-area-inset-left));
+    padding-top: 12px;
+    padding-bottom: 12px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  .password-gate {
+    align-items: start;
+    overflow-y: auto;
+  }
+
+  .password-gate__card {
+    padding: 22px 24px;
+    gap: 10px;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 520px) {
+  .memory-timeline__header span,
+  .heart-chamber__intro p,
+  .echo-moon__header span {
+    font-size: 0.82rem;
+    line-height: 1.4;
+  }
+
+  .memory-experience {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .memory-star-map {
+    min-height: min(300px, 70vh);
+  }
+
+  .memory-stage .memory-stage__copy h3,
+  .memory-artifact__copy h3 {
+    font-size: clamp(1.2rem, 6vh, 1.6rem);
+  }
+}
+
+/* The stage is only ~320px wide beside the star map in landscape, so stack
+   its photo above its text instead of squeezing the copy into a sliver. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .memory-stage {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    overflow: visible;
+  }
+
+  .memory-stage .memory-stage__media {
+    padding: 12px;
+  }
+
+  .memory-stage--portrait .memory-stage__media img,
+  .memory-stage--chat .memory-stage__media img {
+    height: clamp(140px, 38vh, 220px);
+  }
+
+  .memory-stage .memory-stage__copy {
+    align-self: start;
+    padding: 14px 16px;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 520px) {
+  .memory-experience {
+    grid-template-rows: auto;
+    align-items: start;
+  }
+
+  .memory-stage .memory-stage__media {
+    overflow: visible;
+    min-height: auto;
+  }
 }

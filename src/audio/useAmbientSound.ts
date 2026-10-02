@@ -36,7 +36,7 @@ export function useAmbientSound() {
     }
 
     try {
-      const response = await fetch(`/audio/library.json?updated=${Date.now()}`);
+      const response = await fetch(import.meta.env.DEV ? `/audio/library.json?updated=${Date.now()}` : "/audio/library.json");
       if (!response.ok) {
         throw new Error("Audio library unavailable");
       }
@@ -87,7 +87,9 @@ export function useAmbientSound() {
 
     const track = new Audio(trackSrc);
     track.loop = true;
-    track.preload = "auto";
+    // Only fetch headers up front; the file streams once play() is called,
+    // which spares mobile data when she never starts the music.
+    track.preload = "metadata";
     track.volume = 0.12;
 
     master.connect(context.destination);

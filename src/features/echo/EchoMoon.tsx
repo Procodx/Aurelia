@@ -340,6 +340,7 @@ export function EchoMoon({ onClose }: EchoMoonProps) {
               <h3>{activeTrack?.title ?? "No audio yet"}</h3>
               <audio
                 ref={audioRef}
+                preload="none"
                 src={activeTrack?.source}
                 onEnded={() => {
                   setIsTrackPlaying(false);
@@ -406,7 +407,7 @@ export function EchoMoon({ onClose }: EchoMoonProps) {
                   type="button"
                   onClick={() => setImageId(image.id)}
                 >
-                  <img src={image.source} alt="" />
+                  <img src={image.source} alt="" loading="lazy" decoding="async" />
                   <span>{image.title}</span>
                 </button>
               ))}
@@ -461,7 +462,7 @@ export function EchoMoon({ onClose }: EchoMoonProps) {
                 <motion.div className="puzzle-resume" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                   <div>
                     <h3>Welcome Back!</h3>
-                    <img src={activeImage.source} alt="" />
+                    <img src={activeImage.source} alt="" decoding="async" />
                     <p>Progress <strong>{progress}/{tileCount}</strong></p>
                     <div><i style={{ width: `${progressPercent}%` }} /></div>
                     <button type="button" onClick={() => setShowResume(false)}>Continue</button>
