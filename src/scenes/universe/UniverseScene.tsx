@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { SkyLoader } from "../../components/SkyLoader";
-import { fetchLetters } from "../../features/heart/heartLetters";
+import { fetchLetters, heartLettersFallback, markLetterRead } from "../../features/heart/heartLetters";
 import { getStoredIdentity } from "../../features/gate/VisitorIdentity";
 import { useExperienceStore } from "../../store/experienceStore";
 import { requestTiltPermission } from "../../utils/deviceTilt";
@@ -123,6 +123,7 @@ export function UniverseScene() {
   const [vr, setVr] = useState(false);
   const [vrVisiting, setVrVisiting] = useState<CelestialObject["id"] | null>(null);
   const vrFullscreenRef = useRef(false);
+  const vrVisitingRef = useRef<CelestialObject["id"] | null>(null);
   const wakeLockRef = useRef<{ release: () => Promise<void> } | null>(null);
 
   useEffect(() => {
@@ -169,6 +170,7 @@ export function UniverseScene() {
   const stopVR = () => {
     worldRef.current?.exitVR();
     setVr(false);
+    vrVisitingRef.current = null;
     setVrVisiting(null);
     if (document.fullscreenElement) {
       void document.exitFullscreen().catch(() => undefined);
@@ -210,8 +212,36 @@ export function UniverseScene() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vr]);
 
+  // The Heart Chamber in VR: her letters float around her as glowing pages.
+  const openHeartChamberInVR = async () => {
+    const identity = getStoredIdentity() ?? "henry";
+    const [{ createHeartChamberPlace }, loaded] = await Promise.all([
+      import("./world/places/heartChamberPlace"),
+      fetchLetters(identity).catch(() => heartLettersFallback),
+    ]);
+    const viewpoint = worldRef.current?.getViewpoint();
+    // She may already have looked away and pressed Return while it loaded.
+    if (!viewpoint || !worldRef.current || vrVisitingRef.current !== "heart-chamber") {
+      return;
+    }
+
+    // Unread letters first, as in the flat chamber.
+    const letters = [...(loaded.length > 0 ? loaded : heartLettersFallback)]
+      .map((letter) => ({ ...letter }))
+      .sort((a, b) => Number(b.isUnread) - Number(a.isUnread));
+    worldRef.current.setPlace(
+      createHeartChamberPlace({
+        letters,
+        viewpoint,
+        onRead: (letter) => void markLetterRead(identity, letter.id),
+      }),
+    );
+  };
+
   const handleDock = () => {
     if (vrVisiting) {
+      worldRef.current?.setPlace(null);
+      vrVisitingRef.current = null;
       setVrVisiting(null);
       worldRef.current?.setDockMode("exit");
       void worldRef.current?.flyHome();
@@ -251,9 +281,13 @@ export function UniverseScene() {
       if (vrVisiting) {
         return;
       }
+      vrVisitingRef.current = id;
       setVrVisiting(id);
       worldRef.current?.setDockMode("return");
       await worldRef.current?.flyTo(id);
+      if (id === "heart-chamber") {
+        await openHeartChamberInVR();
+      }
       return;
     }
 

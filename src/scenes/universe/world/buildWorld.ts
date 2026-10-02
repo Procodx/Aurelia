@@ -5,6 +5,7 @@ import { SUN_RADIUS, type WorldObjectDef, type WorldObjectId } from "./worldConf
 import { createStereoRenderer, type StereoRenderer } from "./stereoRenderer";
 import { createHeadTracker, type HeadTracker } from "./headTracking";
 import { createTextSprite, createTextTexture } from "./textSprites";
+import type { Viewpoint, VRPlace } from "./vrPlace";
 
 export type WorldOptions = {
   canvas: HTMLCanvasElement;
@@ -33,6 +34,9 @@ export type WorldController = {
   setDockMode: (mode: "exit" | "return") => void;
   /** Test helper: point the view straight at a world. */
   aim: (id: WorldObjectId | "dock") => void;
+  /** Show (or with null, remove) a VR place such as the Heart Chamber letters. */
+  setPlace: (place: VRPlace | null) => void;
+  getViewpoint: () => Viewpoint;
 };
 
 // Everything pinned to the viewer sits at the stereo convergence distance, so
@@ -538,6 +542,7 @@ export function createWorld(options: WorldOptions): WorldController {
   let vrStartedMs = 0;
   const vrSeconds = () => (performance.now() - vrStartedMs) / 1000;
   let vrRecentered = false;
+  let place: VRPlace | null = null;
   let gazeId: string | null = null;
   let gazeTime = 0;
   let lastGazeAt = performance.now();
@@ -845,6 +850,7 @@ export function createWorld(options: WorldOptions): WorldController {
     renderer.setPixelRatio(pixelRatio);
     renderer.setRenderTarget(null);
     camera.focus = 10;
+    setPlace(null);
     reticle.visible = false;
     welcome.sprite.visible = false;
     dock.visible = false;
@@ -855,6 +861,16 @@ export function createWorld(options: WorldOptions): WorldController {
     camera.quaternion.identity();
     applyAspect();
     Object.assign(pose, homePose);
+  };
+
+  const setPlace = (next: VRPlace | null) => {
+    if (place) {
+      place.dispose();
+    }
+    place = next;
+    if (next) {
+      scene.add(next.group);
+    }
   };
 
   const setDockMode = (mode: "exit" | "return") => {
@@ -875,10 +891,14 @@ export function createWorld(options: WorldOptions): WorldController {
     camera.updateMatrixWorld();
     dock.updateMatrixWorld(true);
     gazeRay.setFromCamera(screenCenter, camera);
-    // While visiting a world, only the Return button is selectable.
-    const targets: THREE.Object3D[] = frozen ? [dock] : [...bodies.map((body) => body.pick), dock];
+    // While visiting a world, only the Return button and that place's own
+    // controls are selectable.
+    const placeTargets = place ? place.targets() : [];
+    const targets: THREE.Object3D[] = frozen ? [dock, ...placeTargets] : [...bodies.map((body) => body.pick), dock, ...placeTargets];
     const hit = gazeRay.intersectObjects(targets, false)[0];
-    const id = hit ? (hit.object === dock ? "dock" : (hit.object.userData.id as string)) : null;
+    const hitObject = hit ? hit.object : null;
+    const id = hitObject ? (hitObject === dock ? "dock" : ((hitObject.userData.id as string | undefined) ?? hitObject.uuid)) : null;
+    place?.onGaze?.(hitObject && placeTargets.includes(hitObject) ? hitObject : null);
 
     if (id !== gazeId) {
       gazeId = id;
@@ -891,14 +911,17 @@ export function createWorld(options: WorldOptions): WorldController {
     }
 
     gazeTime += delta;
-    const needed = id === "dock" ? 1.6 : 1.3;
+    const needed = (hitObject?.userData.dwell as number | undefined) ?? (id === "dock" ? 1.6 : 1.3);
     setGazeProgress(gazeTime / needed);
     if (gazeTime >= needed) {
       gazeTime = 0;
       gazeId = null;
       setGazeProgress(0);
-      if (id === "dock") {
+      const select = hitObject?.userData.onSelect as (() => void) | undefined;
+      if (hitObject === dock) {
         options.onDock();
+      } else if (select) {
+        select();
       } else {
         options.onPick(id as WorldObjectId);
       }
@@ -1015,12 +1038,19 @@ export function createWorld(options: WorldOptions): WorldController {
       vignette += ((flying ? 0.6 : 0) - vignette) * Math.min(delta * 4, 1);
 
       // The Return / Exit button hangs below her line of sight.
-      const k = VR_UI_DISTANCE / 4;
-      dock.position.set(pose.x - Math.sin(pose.yaw) * 3.8 * k, pose.y - 2.6 * k, pose.z - Math.cos(pose.yaw) * 3.8 * k);
+      // Always the same angle below the view centre, wherever the world has her looking.
+      const dockPitch = pose.pitch - 0.55;
+      const dockDistance = VR_UI_DISTANCE * 1.15;
+      dock.position.set(
+        pose.x - Math.sin(pose.yaw) * Math.cos(dockPitch) * dockDistance,
+        pose.y + Math.sin(dockPitch) * dockDistance,
+        pose.z - Math.cos(pose.yaw) * Math.cos(dockPitch) * dockDistance,
+      );
       dock.lookAt(camera.position);
 
       // Names would collide with the Return button while she is visiting a world.
       vrOnlyObjects.forEach((item) => (item.visible = !frozen));
+      place?.update(delta, elapsed);
       updateGaze(delta);
       stereo?.render(scene, camera, vignette);
       return;
@@ -1086,5 +1116,7 @@ export function createWorld(options: WorldOptions): WorldController {
       pose.yaw = Math.atan2(-direction.x, -direction.z);
       pose.pitch = Math.asin(direction.y);
     },
+    setPlace,
+    getViewpoint: () => ({ position: new THREE.Vector3(pose.x, pose.y, pose.z), yaw: pose.yaw, pitch: pose.pitch }),
   };
 }

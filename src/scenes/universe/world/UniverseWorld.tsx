@@ -1,6 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import { createWorld, type WorldController } from "./buildWorld";
 import { worldObjects, type WorldObjectId } from "./worldConfig";
+import type { Viewpoint, VRPlace } from "./vrPlace";
 
 export type WorldLabel = { id: WorldObjectId; name: string; whisper: string };
 
@@ -13,6 +14,8 @@ export type UniverseWorldHandle = {
   exitVR: () => void;
   setDockMode: (mode: "exit" | "return") => void;
   aim: (id: WorldObjectId | "dock") => void;
+  setPlace: (place: VRPlace | null) => void;
+  getViewpoint: () => Viewpoint | null;
 };
 
 type UniverseWorldProps = {
@@ -54,6 +57,8 @@ export const UniverseWorld = forwardRef<UniverseWorldHandle, UniverseWorldProps>
       exitVR: () => controllerRef.current?.exitVR(),
       setDockMode: (mode) => controllerRef.current?.setDockMode(mode),
       aim: (id) => controllerRef.current?.aim(id),
+      setPlace: (place) => controllerRef.current?.setPlace(place),
+      getViewpoint: () => controllerRef.current?.getViewpoint() ?? null,
     }),
     [],
   );
