@@ -1,13 +1,10 @@
-import { type CSSProperties, type PointerEvent, type WheelEvent, lazy, Suspense, useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion, useMotionValue } from "framer-motion";
-import gsap from "gsap";
-import { playPlanetEnter } from "../../animations/planetEnter";
-import { ThreeStarfield } from "../../components/ThreeStarfield";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { SkyLoader } from "../../components/SkyLoader";
 import { fetchLetters } from "../../features/heart/heartLetters";
 import { getStoredIdentity } from "../../features/gate/VisitorIdentity";
-import { MemoryConstellation } from "../../features/memories/MemoryConstellation";
 import { useExperienceStore } from "../../store/experienceStore";
+import { UniverseWorld, type UniverseWorldHandle } from "./world/UniverseWorld";
 
 // Each planet panel is its own chunk, so the first paint of the universe
 // doesn't download the music player, puzzles, 3D star map and so on.
@@ -25,14 +22,6 @@ type CelestialObject = {
   name: string;
   whisper: string;
   detail: string;
-  className: string;
-  delay: number;
-  drift: number;
-  orbitX: number;
-  orbitY: number;
-  orbitDuration: number;
-  orbitStart: number;
-  bodyScale: number;
 };
 
 const celestialObjects: CelestialObject[] = [
@@ -40,16 +29,7 @@ const celestialObjects: CelestialObject[] = [
     id: "memory-constellation",
     name: "The Remembering Stars",
     whisper: "A constellation of firsts, laughter, and little forever moments.",
-      detail:
-      "A timeline of firsts, laughter, little forever things, and favorite pictures that drift back into view.",
-    className: "celestial celestial--constellation",
-    delay: 0.4,
-    drift: 0.2,
-    orbitX: 465,
-    orbitY: 205,
-    orbitDuration: 80,
-    orbitStart: 50,
-    bodyScale: 0.9,
+    detail: "A timeline of firsts, laughter, little forever things, and favorite pictures that drift back into view.",
   },
   {
     id: "garden-planet",
@@ -57,14 +37,6 @@ const celestialObjects: CelestialObject[] = [
     whisper: "A garden where every flower knows something beautiful about her.",
     detail:
       "This becomes the compliments and affirmations space, with glowing flowers that open into gentle words and falling petals.",
-    className: "celestial celestial--garden",
-    delay: 0.72,
-    drift: 1.4,
-    orbitX: 530,
-    orbitY: 240,
-    orbitDuration: 88,
-    orbitStart: 160,
-    bodyScale: 0.92,
   },
   {
     id: "echo-moon",
@@ -72,14 +44,6 @@ const celestialObjects: CelestialObject[] = [
     whisper: "Songs orbit here, each one tied to a memory.",
     detail:
       "This will hold the shared soundtrack: a spinning record, soft glow pulses, and memories attached to every song.",
-    className: "celestial celestial--moon",
-    delay: 1.04,
-    drift: 2.2,
-    orbitX: 590,
-    orbitY: 270,
-    orbitDuration: 104,
-    orbitStart: 258,
-    bodyScale: 0.88,
   },
   {
     id: "heart-chamber",
@@ -87,14 +51,6 @@ const celestialObjects: CelestialObject[] = [
     whisper: "Only the Queen may enter.",
     detail:
       "The sacred core: letters from Sir Henry, typed slowly, with future messages that unlock when their moment arrives.",
-    className: "celestial celestial--heart",
-    delay: 1.36,
-    drift: 0.85,
-    orbitX: 390,
-    orbitY: 170,
-    orbitDuration: 72,
-    orbitStart: 300,
-    bodyScale: 0.98,
   },
   {
     id: "future-stars",
@@ -102,71 +58,14 @@ const celestialObjects: CelestialObject[] = [
     whisper: "Some memories are still on their way.",
     detail:
       "These dim stars will unlock on future dates, turning anticipation into part of the universe itself.",
-    className: "celestial celestial--future",
-    delay: 1.68,
-    drift: 2.9,
-    orbitX: 620,
-    orbitY: 300,
-    orbitDuration: 120,
-    orbitStart: 128,
-    bodyScale: 0.84,
   },
 ];
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(Math.max(value, min), max);
-}
-
-const mapSize = { width: 1280, height: 760 };
-const orbitCenter = { x: 640, y: 390 };
-const desktopView = { defaultZoom: 1, minZoom: 0.72, maxZoom: 1.58 };
-const mobileView = { defaultZoom: 0.54, minZoom: 0.44, maxZoom: 1.24 };
-
-function getViewSettings() {
-  if (typeof window !== "undefined" && window.matchMedia("(max-width: 760px)").matches) {
-    return mobileView;
-  }
-
-  return desktopView;
-}
-
-function getOrbitPosition(object: CelestialObject, elapsedSeconds: number) {
-  const angle = ((object.orbitStart + (elapsedSeconds / object.orbitDuration) * 360) * Math.PI) / 180;
-  const x = Math.cos(angle) * object.orbitX;
-  const y = Math.sin(angle) * object.orbitY;
-  const depth = (Math.sin(angle) + 1) / 2;
-
-  return {
-    x: orbitCenter.x + x,
-    y: orbitCenter.y + y,
-    scale: object.bodyScale * (0.86 + depth * 0.22),
-    zIndex: Math.round(20 + depth * 20),
-  };
-}
-
-function getOrbitTransform(object: CelestialObject, elapsedSeconds: number) {
-  const position = getOrbitPosition(object, elapsedSeconds);
-  return {
-    transform: `translate3d(${position.x}px, ${position.y}px, 0) translate(-50%, -50%) scale(${position.scale})`,
-    zIndex: position.zIndex,
-  };
-}
-
-function waitForNextPaint() {
-  return new Promise<void>((resolve) => {
-    window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => resolve());
-    });
-  });
-}
 
 export function UniverseScene() {
   const activeObjectId = useExperienceStore((state) => state.activeObjectId);
   const focusObject = useExperienceStore((state) => state.focusObject);
   const clearFocus = useExperienceStore((state) => state.clearFocus);
   const activeObject = celestialObjects.find((object) => object.id === activeObjectId);
-  const genericObjects = celestialObjects.filter((object) => object.id !== "memory-constellation");
-  const memoryObject = celestialObjects.find((object) => object.id === "memory-constellation")!;
   const [heartChamberHasUnread, setHeartChamberHasUnread] = useState(false);
 
   useEffect(() => {
@@ -197,13 +96,6 @@ export function UniverseScene() {
       isMounted = false;
     };
   }, [activeObjectId]);
-  // Motion values instead of useState: dragging/zooming calls .set() directly,
-  // which pushes straight to the DOM transform without a React re-render.
-  // Previously these were useState, so every pointermove while dragging
-  // re-rendered the whole scene (all 5 planets, the SVG orbit rings, etc.) —
-  // that was the main source of the lag while panning the sky.
-  const zoomMV = useMotionValue(getViewSettings().defaultZoom);
-
   // Warm the panel chunks once the sky has settled, so tapping a planet
   // opens instantly. Skipped on data-saver connections.
   useEffect(() => {
@@ -221,7 +113,10 @@ export function UniverseScene() {
     const id = window.setTimeout(warm, 3000);
     return () => window.clearTimeout(id);
   }, []);
-  const panX = useMotionValue(0);
+
+  const worldRef = useRef<UniverseWorldHandle | null>(null);
+  const [transitioningObjectId, setTransitioningObjectId] = useState<CelestialObject["id"] | null>(null);
+  const previousActiveRef = useRef(activeObjectId);
 
   // Escape closes whichever planet panel is open (keyboard / tablet keyboards).
   useEffect(() => {
@@ -238,214 +133,41 @@ export function UniverseScene() {
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [activeObjectId, clearFocus]);
-  const panY = useMotionValue(0);
-  const [transitioningObjectId, setTransitioningObjectId] = useState<CelestialObject["id"] | null>(null);
-  const [visitedObjectIds, setVisitedObjectIds] = useState<Set<CelestialObject["id"]>>(() => new Set());
-  const dragRef = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
-  const pointersRef = useRef(new Map<number, { x: number; y: number }>());
-  const pinchRef = useRef<{ distance: number; zoom: number } | null>(null);
-  const universeRef = useRef<HTMLElement | null>(null);
-  const celestialLayerRef = useRef<HTMLDivElement | null>(null);
-  const warpRef = useRef<HTMLDivElement | null>(null);
-  const planetRefs = useRef(new Map<CelestialObject["id"], HTMLDivElement>());
-  const orbitTimeRef = useRef(0);
-  const overlayOpenRef = useRef(activeObjectId !== null);
 
+  // Backing out of a planet: the camera glides home through the universe.
   useEffect(() => {
-    // transitioningObjectId covers the ~1s GSAP warp animation that plays
-    // while a world is opening. Without it here, the orbit tick below kept
-    // writing planetElement.style.transform every frame while GSAP's
-    // playPlanetEnter timeline was independently tweening transform on that
-    // exact same element — two animation systems fighting over one CSS
-    // property on the same node, which is what caused the stutter on entry.
-    overlayOpenRef.current = activeObjectId !== null || transitioningObjectId !== null;
-  }, [activeObjectId, transitioningObjectId]);
-
-  useEffect(() => {
-    // Driven by GSAP's shared ticker rather than a second, independent
-    // requestAnimationFrame loop. Every warp/entry animation in this app
-    // already runs on GSAP's ticker, which internally uses a single rAF
-    // registration no matter how many listeners are attached to it — so
-    // adding this tick here doesn't cost the browser an extra callback
-    // per frame the way a standalone rAF loop would, it just runs inside
-    // the one that's already ticking.
-    const startedAt = gsap.ticker.time;
-
-    const tick = () => {
-      // The planets are fully hidden behind the revelation/overlay panel
-      // once one is open, so skip the transform math and let the CPU idle.
-      if (overlayOpenRef.current) {
-        return;
-      }
-
-      const elapsedSeconds = gsap.ticker.time - startedAt;
-      orbitTimeRef.current = elapsedSeconds;
-
-      for (const object of celestialObjects) {
-        const planetElement = planetRefs.current.get(object.id);
-        if (!planetElement) {
-          continue;
-        }
-
-        const position = getOrbitTransform(object, elapsedSeconds);
-        planetElement.style.transform = position.transform;
-        planetElement.style.zIndex = `${position.zIndex}`;
-      }
-    };
-
-    gsap.ticker.add(tick);
-    return () => gsap.ticker.remove(tick);
-  }, []);
-
-  const handlePointerDown = (event: PointerEvent<HTMLElement>) => {
-    if (
-      activeObjectId ||
-      transitioningObjectId ||
-      (event.target as HTMLElement).closest("button, aside, .universe-controls")
-    ) {
-      return;
+    if (previousActiveRef.current !== null && activeObjectId === null) {
+      void worldRef.current?.flyHome();
     }
+    previousActiveRef.current = activeObjectId;
+  }, [activeObjectId]);
 
-    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
-    event.currentTarget.setPointerCapture(event.pointerId);
-
-    if (pointersRef.current.size === 2) {
-      // Second finger down: switch from panning to pinch-zooming.
-      dragRef.current = null;
-      const [a, b] = [...pointersRef.current.values()];
-      pinchRef.current = { distance: Math.hypot(a.x - b.x, a.y - b.y) || 1, zoom: zoomMV.get() };
-      return;
-    }
-
-    dragRef.current = {
-      x: event.clientX,
-      y: event.clientY,
-      panX: panX.get(),
-      panY: panY.get(),
-    };
-  };
-
-  const handlePointerMove = (event: PointerEvent<HTMLElement>) => {
-    if (!pointersRef.current.has(event.pointerId)) {
-      return;
-    }
-
-    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
-
-    if (pinchRef.current && pointersRef.current.size >= 2) {
-      const [a, b] = [...pointersRef.current.values()];
-      const viewSettings = getViewSettings();
-      const scale = (Math.hypot(a.x - b.x, a.y - b.y) || 1) / pinchRef.current.distance;
-      zoomMV.set(clamp(pinchRef.current.zoom * scale, viewSettings.minZoom, viewSettings.maxZoom));
-      return;
-    }
-
-    if (!dragRef.current) {
-      return;
-    }
-
-    panX.set(dragRef.current.panX + event.clientX - dragRef.current.x);
-    panY.set(dragRef.current.panY + event.clientY - dragRef.current.y);
-  };
-
-  const handlePointerUp = (event: PointerEvent<HTMLElement>) => {
-    pointersRef.current.delete(event.pointerId);
-    pinchRef.current = null;
-
-    // If one finger stays down after a pinch, carry on panning from where it is.
-    const [remaining] = [...pointersRef.current.values()];
-    dragRef.current = remaining
-      ? { x: remaining.x, y: remaining.y, panX: panX.get(), panY: panY.get() }
-      : null;
-
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-  };
-
-  const handleWheel = (event: WheelEvent<HTMLElement>) => {
-    if (activeObjectId || transitioningObjectId) {
-      return;
-    }
-
-    event.preventDefault();
-    const viewSettings = getViewSettings();
-    zoomMV.set(clamp(zoomMV.get() - event.deltaY * 0.0011, viewSettings.minZoom, viewSettings.maxZoom));
-  };
-
-  const resetView = () => {
-    const viewSettings = getViewSettings();
-    panX.set(0);
-    panY.set(0);
-    zoomMV.set(viewSettings.defaultZoom);
-  };
-
-  const rememberPlanetRef = (id: CelestialObject["id"]) => (node: HTMLDivElement | null) => {
-    if (node) {
-      planetRefs.current.set(id, node);
-      return;
-    }
-
-    planetRefs.current.delete(id);
-  };
-
-  const enterObject = async (object: CelestialObject) => {
+  const enterObject = async (id: CelestialObject["id"]) => {
     if (transitioningObjectId || activeObjectId) {
       return;
     }
 
-    const universeElement = universeRef.current;
-    const layerElement = celestialLayerRef.current;
-    const warpElement = warpRef.current;
-    const planetElement = planetRefs.current.get(object.id);
-    const objectPosition = getOrbitPosition(object, orbitTimeRef.current);
-    const viewSettings = getViewSettings();
-    const entryZoom =
-      viewSettings === mobileView ? (object.id === "heart-chamber" ? 0.94 : 0.9) : object.id === "heart-chamber" ? 1.32 : 1.24;
-
-    setTransitioningObjectId(object.id);
-    setVisitedObjectIds((current) => new Set(current).add(object.id));
-    zoomMV.set(entryZoom);
-    panX.set(-(objectPosition.x - orbitCenter.x) * entryZoom);
-    panY.set(-(objectPosition.y - orbitCenter.y) * entryZoom);
-
-    await waitForNextPaint();
-
-    if (universeElement && layerElement && planetElement && warpElement) {
-      await playPlanetEnter({
-        universe: universeElement,
-        layer: layerElement,
-        planet: planetElement,
-        warp: warpElement,
-      });
-    } else {
-      await new Promise((resolve) => window.setTimeout(resolve, 900));
-    }
-
-    focusObject(object.id);
+    setTransitioningObjectId(id);
+    await worldRef.current?.flyTo(id);
+    focusObject(id);
     setTransitioningObjectId(null);
   };
 
   return (
     <motion.section
-      ref={universeRef}
       className={transitioningObjectId ? "universe scene is-travelling" : "universe scene"}
       initial={{ opacity: 0, scale: 1.08 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 1.8, ease: [0.16, 1, 0.3, 1] }}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerUp}
-      onWheel={handleWheel}
     >
-      <ThreeStarfield
-        className="three-starfield universe__starfield"
-        intensity="awake"
-        density={1200}
-        depth={980}
-        paused={activeObjectId !== null || transitioningObjectId !== null}
+      <UniverseWorld
+        ref={worldRef}
+        labels={celestialObjects.map(({ id, name, whisper }) => ({ id, name, whisper }))}
+        paused={activeObjectId !== null && transitioningObjectId === null}
+        travelling={transitioningObjectId !== null}
+        heartHasUnread={heartChamberHasUnread}
+        onEnter={(id) => void enterObject(id)}
       />
       <motion.div
         className="universe__arrival-bloom"
@@ -459,17 +181,6 @@ export function UniverseScene() {
         animate={{ opacity: [0, 0.72, 0], scale: [0.8, 1.2, 1.55] }}
         transition={{ duration: 3.2, ease: "easeOut" }}
       />
-      <div className="cosmic-haze cosmic-haze--blue" />
-      <div className="cosmic-haze cosmic-haze--rose" />
-      <div
-        ref={warpRef}
-        className={transitioningObjectId ? `planet-warp planet-warp--${transitioningObjectId}` : "planet-warp"}
-        aria-hidden="true"
-      >
-        <span />
-        <span />
-        <span />
-      </div>
 
       <motion.div
         className="universe__invitation"
@@ -478,144 +189,20 @@ export function UniverseScene() {
         transition={{ duration: 1.2, delay: 1.1 }}
       >
         <p>The universe is awake now.</p>
-        <span>Drag the sky. Move closer. Let the glowing places answer.</span>
+        <span>Look around. Drift closer. Let the glowing places answer.</span>
       </motion.div>
 
       <div className="universe-controls" aria-label="Universe view controls">
-        <button
-          type="button"
-          onClick={() => {
-            const viewSettings = getViewSettings();
-            zoomMV.set(clamp(zoomMV.get() + 0.12, viewSettings.minZoom, viewSettings.maxZoom));
-          }}
-          aria-label="Move closer"
-        >
+        <button type="button" onClick={() => worldRef.current?.dolly(10)} aria-label="Move closer">
           +
         </button>
-        <button
-          type="button"
-          onClick={() => {
-            const viewSettings = getViewSettings();
-            zoomMV.set(clamp(zoomMV.get() - 0.12, viewSettings.minZoom, viewSettings.maxZoom));
-          }}
-          aria-label="Move farther"
-        >
+        <button type="button" onClick={() => worldRef.current?.dolly(-10)} aria-label="Move farther">
           -
         </button>
-        <button type="button" onClick={resetView} aria-label="Reset universe view">
+        <button type="button" onClick={() => worldRef.current?.resetView()} aria-label="Reset universe view">
           reset
         </button>
       </div>
-
-      <motion.div
-        className="universe__camera"
-        aria-label="Explorable celestial memories"
-        style={{ x: panX, y: panY, scale: zoomMV }}
-        transition={{ type: "spring", stiffness: 90, damping: 24 }}
-      >
-        <div ref={celestialLayerRef} className="celestial-layer">
-          <svg className="orbit-rings" viewBox={`0 0 ${mapSize.width} ${mapSize.height}`} aria-hidden="true">
-          <defs>
-            <linearGradient id="orbitGlow" x1="0" x2="1" y1="0" y2="0">
-              <stop stopColor="rgba(255, 215, 132, 0)" offset="0" />
-              <stop stopColor="rgba(255, 215, 132, 0.34)" offset="0.45" />
-              <stop stopColor="rgba(143, 214, 255, 0.32)" offset="0.72" />
-              <stop stopColor="rgba(255, 215, 132, 0)" offset="1" />
-            </linearGradient>
-          </defs>
-          {celestialObjects.map((object) => (
-            <ellipse
-              className="orbit-ring"
-              key={object.id}
-              cx={orbitCenter.x}
-              cy={orbitCenter.y}
-              rx={object.orbitX}
-              ry={object.orbitY}
-              style={{ "--ring-index": `${celestialObjects.indexOf(object) + 1}` } as CSSProperties}
-            />
-          ))}
-          <ellipse className="orbit-ring orbit-ring--wide" cx={orbitCenter.x} cy={orbitCenter.y} rx="690" ry="330" />
-          </svg>
-
-          <div className="heart-sun" style={{ left: orbitCenter.x, top: orbitCenter.y }} aria-hidden="true">
-            <span />
-            <strong>Love</strong>
-          </div>
-
-          <motion.div
-            ref={rememberPlanetRef(memoryObject.id)}
-            className={`orbiting-object orbiting-object--memory ${
-              visitedObjectIds.has(memoryObject.id) ? "has-been-visited" : ""
-            } ${transitioningObjectId === memoryObject.id ? "is-selected-for-entry" : ""}`}
-            initial={{ opacity: 0 }}
-            animate={{
-              opacity: 1,
-            }}
-            transition={{ duration: 1.7, delay: memoryObject.delay, ease: [0.16, 1, 0.3, 1] }}
-            style={{
-              transform: getOrbitTransform(memoryObject, 0).transform,
-              zIndex: getOrbitTransform(memoryObject, 0).zIndex,
-            }}
-          >
-            <MemoryConstellation
-              name={memoryObject.name}
-              whisper={memoryObject.whisper}
-              delay={memoryObject.delay}
-              drift={memoryObject.drift}
-              onOpen={() => void enterObject(memoryObject)}
-            />
-          </motion.div>
-
-          {genericObjects.map((object) => (
-            <motion.div
-              ref={rememberPlanetRef(object.id)}
-              className={`orbiting-object ${visitedObjectIds.has(object.id) ? "has-been-visited" : ""} ${
-                transitioningObjectId === object.id ? "is-selected-for-entry" : ""
-              }`}
-              key={object.id}
-              initial={{ opacity: 0 }}
-              animate={{
-                opacity: 1,
-              }}
-              transition={{ duration: 1.7, delay: object.delay, ease: [0.16, 1, 0.3, 1] }}
-              style={{
-                transform: getOrbitTransform(object, 0).transform,
-                zIndex: getOrbitTransform(object, 0).zIndex,
-              }}
-            >
-              <motion.button
-                className={object.className}
-                type="button"
-                onClick={() => void enterObject(object)}
-                whileHover={{ scale: 1.08 }}
-                whileTap={{ scale: 0.98 }}
-                transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-              >
-                <motion.span
-                  className="celestial__body"
-                  animate={{
-                    y: [0, -16, 0, 10, 0],
-                    rotate: [0, 1.4, 0, -1.2, 0],
-                    scale: [1, 1.035, 1, 0.99, 1],
-                  }}
-                  transition={{
-                    duration: 8.5,
-                    repeat: Infinity,
-                    delay: object.drift,
-                    ease: [0.42, 0, 0.58, 1],
-                  }}
-                />
-                <span className="celestial__aura" />
-                {object.id === "heart-chamber" && heartChamberHasUnread && (
-                  <span className="celestial__unread-badge" aria-label="Unread letter waiting" />
-                )}
-                <span className="celestial__name">{object.name}</span>
-                <span className="celestial__whisper">{object.whisper}</span>
-              </motion.button>
-            </motion.div>
-          ))}
-        </div>
-      </motion.div>
 
       <AnimatePresence>
         {activeObject?.id === "memory-constellation" && (
