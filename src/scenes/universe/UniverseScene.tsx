@@ -248,6 +248,9 @@ export function UniverseScene() {
 
     // She may already have pressed Return while this loaded.
     if (place && worldRef.current && vrVisitingRef.current === id) {
+      if (import.meta.env.DEV) {
+        (window as unknown as { __place?: VRPlace }).__place = place;
+      }
       worldRef.current.setPlace(place);
     } else {
       place?.dispose();
