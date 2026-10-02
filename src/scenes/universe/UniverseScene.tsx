@@ -129,6 +129,8 @@ export function UniverseScene() {
   const vrFullscreenRef = useRef(false);
   const vrVisitingRef = useRef<CelestialObject["id"] | null>(null);
   const vrAudioRef = useRef<HTMLAudioElement | null>(null);
+  const vrNoteRef = useRef(false);
+  const [starNote, setStarNote] = useState<string | null>(null);
   const wakeLockRef = useRef<{ release: () => Promise<void> } | null>(null);
 
   useEffect(() => {
@@ -183,6 +185,7 @@ export function UniverseScene() {
 
   const stopVR = () => {
     worldRef.current?.exitVR();
+    vrNoteRef.current = false;
     setVr(false);
     vrVisitingRef.current = null;
     setVrVisiting(null);
@@ -298,7 +301,32 @@ export function UniverseScene() {
     );
   };
 
+  // A shooting star was caught: its note appears as a card (flat) or floats in front of her (VR).
+  const handleMeteor = async () => {
+    const { nextShootingStarMessage } = await import("../../features/stars/shootingStarMessages");
+    const message = nextShootingStarMessage();
+    if (!vr) {
+      setStarNote(message);
+      return;
+    }
+
+    const viewpoint = worldRef.current?.getViewpoint();
+    if (!viewpoint) {
+      return;
+    }
+    const { createMessagePlace } = await import("./world/places/messagePlace");
+    vrNoteRef.current = true;
+    worldRef.current?.setPlace(createMessagePlace(message, viewpoint));
+    worldRef.current?.setDockMode("return");
+  };
+
   const handleDock = () => {
+    if (vrNoteRef.current) {
+      vrNoteRef.current = false;
+      worldRef.current?.setPlace(null);
+      worldRef.current?.setDockMode("exit");
+      return;
+    }
     if (vrVisiting) {
       worldRef.current?.setPlace(null);
       vrVisitingRef.current = null;
@@ -387,6 +415,7 @@ export function UniverseScene() {
         vr={vr}
         onEnter={(id) => void enterObject(id)}
         onDock={handleDock}
+        onMeteor={() => void handleMeteor()}
       />
       <motion.div
         className="universe__arrival-bloom"
@@ -438,6 +467,24 @@ export function UniverseScene() {
       </div>
 
       <AnimatePresence>
+        {starNote && !vr && (
+          <motion.aside
+            key="star-note"
+            className="star-note"
+            role="status"
+            initial={{ opacity: 0, y: 24, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 14 }}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <p>A shooting star left this for you</p>
+            <blockquote>{starNote}</blockquote>
+            <span>Sir Henry</span>
+            <button type="button" onClick={() => setStarNote(null)}>
+              Keep it close
+            </button>
+          </motion.aside>
+        )}
         {activeObject?.id === "memory-constellation" && (
           <Suspense key="memory-constellation" fallback={<SkyLoader inline />}>
             <MemoryTimeline onClose={clearFocus} />

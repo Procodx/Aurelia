@@ -13,11 +13,12 @@ export type UniverseWorldHandle = {
   enterVR: () => void;
   exitVR: () => void;
   setDockMode: (mode: "exit" | "return") => void;
-  aim: (id: WorldObjectId | "dock") => void;
+  aim: (id: WorldObjectId | "dock" | "meteor") => void;
   setPlace: (place: VRPlace | null) => void;
   getViewpoint: () => Viewpoint | null;
   enterInterior: (id: WorldObjectId) => Promise<void>;
   exitInterior: () => Promise<void>;
+  summonMeteor: () => { x: number; y: number } | null;
 };
 
 type UniverseWorldProps = {
@@ -30,10 +31,11 @@ type UniverseWorldProps = {
   vr: boolean;
   onEnter: (id: WorldObjectId) => void;
   onDock: () => void;
+  onMeteor: () => void;
 };
 
 export const UniverseWorld = forwardRef<UniverseWorldHandle, UniverseWorldProps>(function UniverseWorld(
-  { labels, paused, travelling, heartHasUnread, vr, onEnter, onDock },
+  { labels, paused, travelling, heartHasUnread, vr, onEnter, onDock, onMeteor },
   ref,
 ) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -42,11 +44,13 @@ export const UniverseWorld = forwardRef<UniverseWorldHandle, UniverseWorldProps>
   const hoverRef = useRef<WorldObjectId | null>(null);
   const onEnterRef = useRef(onEnter);
   const onDockRef = useRef(onDock);
+  const onMeteorRef = useRef(onMeteor);
 
   useEffect(() => {
     onEnterRef.current = onEnter;
     onDockRef.current = onDock;
-  }, [onEnter, onDock]);
+    onMeteorRef.current = onMeteor;
+  }, [onEnter, onDock, onMeteor]);
 
   useImperativeHandle(
     ref,
@@ -63,6 +67,7 @@ export const UniverseWorld = forwardRef<UniverseWorldHandle, UniverseWorldProps>
       getViewpoint: () => controllerRef.current?.getViewpoint() ?? null,
       enterInterior: (id) => controllerRef.current?.enterInterior(id) ?? Promise.resolve(),
       exitInterior: () => controllerRef.current?.exitInterior() ?? Promise.resolve(),
+      summonMeteor: () => controllerRef.current?.summonMeteor() ?? null,
     }),
     [],
   );
@@ -81,6 +86,7 @@ export const UniverseWorld = forwardRef<UniverseWorldHandle, UniverseWorldProps>
       lowPower: (navigator.hardwareConcurrency ?? 8) <= 4 || window.matchMedia("(pointer: coarse)").matches,
       onPick: (id) => onEnterRef.current(id),
       onDock: () => onDockRef.current(),
+      onMeteor: () => onMeteorRef.current(),
       onHover: (id) => {
         hoverRef.current = id;
         labelRefs.current.forEach((element, key) => element.classList.toggle("is-hovered", key === id));

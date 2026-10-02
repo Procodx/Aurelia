@@ -20,6 +20,8 @@ export type WorldOptions = {
   onHover: (id: WorldObjectId | null) => void;
   /** Gazed at the floating Return / Exit button in VR. */
   onDock: () => void;
+  /** She caught a shooting star (tap it, or look at it in VR). */
+  onMeteor: () => void;
   /** Called every frame so DOM labels can follow their planets. */
   /**
    * `edge` is set when the world is off-screen (behind her, above, to the side):
@@ -39,7 +41,7 @@ export type WorldController = {
   exitVR: () => void;
   setDockMode: (mode: "exit" | "return") => void;
   /** Test helper: point the view straight at a world. */
-  aim: (id: WorldObjectId | "dock") => void;
+  aim: (id: WorldObjectId | "dock" | "meteor") => void;
   /** Show (or with null, remove) a VR place such as the Heart Chamber letters. */
   setPlace: (place: VRPlace | null) => void;
   getViewpoint: () => Viewpoint;
@@ -47,6 +49,8 @@ export type WorldController = {
   enterInterior: (id: WorldObjectId) => Promise<void>;
   /** Rise back out of the world she is inside. */
   exitInterior: () => Promise<void>;
+  /** Test helper: make a shooting star appear now and return where it is on screen. */
+  summonMeteor: () => { x: number; y: number } | null;
 };
 
 // Everything pinned to the viewer sits at the stereo convergence distance, so
@@ -407,12 +411,36 @@ export function createWorld(options: WorldOptions): WorldController {
   }
 
   // ---------- Shooting stars ----------
-  const streak = glowSprite("#ffffff", 1, 0);
-  streak.scale.set(34, 0.9, 1);
-  scene.add(streak);
-  let nextStreakAt = 4 + Math.random() * 4;
-  let streakLife = 0;
-  const streakDirection = new THREE.Vector3();
+  // Now and then one crosses the sky in front of her, slowly enough to catch.
+  // Tapping it (or looking at it in VR) opens a little note from Sir Henry.
+  const meteor = new THREE.Group();
+  meteor.visible = false;
+  const meteorHead = glowSprite("#fff4cf", 9, 1);
+  const meteorHalo = glowSprite("#ffd98a", 26, 0.5);
+  const meteorTrail = glowSprite("#ffe6b0", 1, 0.8);
+  meteorTrail.scale.set(70, 2.2, 1);
+  meteorTrail.center.set(1, 0.5);
+  const meteorPick = new THREE.Mesh(pickGeometry, pickMaterial);
+  meteorPick.scale.setScalar(15);
+  meteorPick.userData.id = "meteor";
+  meteor.add(meteorTrail, meteorHalo, meteorHead, meteorPick);
+  scene.add(meteor);
+  let meteorLife = 0;
+  let meteorCaught = 0;
+  let nextMeteorAt = 14 + Math.random() * 6;
+  const METEOR_SECONDS = 7;
+  const meteorStart = new THREE.Vector3();
+  const meteorVelocity = new THREE.Vector3();
+
+  const catchMeteor = () => {
+    if (meteorLife <= 0 || meteorCaught > 0) {
+      return;
+    }
+    meteorCaught = 1;
+    options.onMeteor();
+  };
+  meteorPick.userData.dwell = 0.7;
+  meteorPick.userData.onSelect = catchMeteor;
 
   // ---------- VR furniture: gaze reticle, welcome text, Return / Exit button ----------
   const reticle = new THREE.Group();
@@ -881,6 +909,15 @@ export function createWorld(options: WorldOptions): WorldController {
     if (!inside && wasTracked && pointers.size === 0 && dragMoved < 8 && performance.now() - downAt < 600) {
       velYaw = 0;
       velPitch = 0;
+      if (meteor.visible && meteorLife > 0) {
+        const rect = canvas.getBoundingClientRect();
+        ndc.set(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1);
+        raycaster.setFromCamera(ndc, camera);
+        if (raycaster.intersectObject(meteorPick, false).length > 0) {
+          catchMeteor();
+          return;
+        }
+      }
       const id = pickAt(event.clientX, event.clientY);
       if (id) {
         options.onPick(id);
@@ -1005,7 +1042,10 @@ export function createWorld(options: WorldOptions): WorldController {
     // While visiting a world, only the Return button and that place's own
     // controls are selectable.
     const placeTargets = place ? place.targets() : [];
-    const targets: THREE.Object3D[] = frozen ? [dock, ...placeTargets] : [...bodies.map((body) => body.pick), dock, ...placeTargets];
+    const meteorTargets = meteor.visible && meteorLife > 0 && meteorCaught <= 0 ? [meteorPick] : [];
+    const targets: THREE.Object3D[] = frozen
+      ? [dock, ...placeTargets]
+      : [...meteorTargets, ...bodies.map((body) => body.pick), dock, ...placeTargets];
     const hit = gazeRay.intersectObjects(targets, false)[0];
     const hitObject = hit ? hit.object : null;
     const id = hitObject ? (hitObject === dock ? "dock" : ((hitObject.userData.id as string | undefined) ?? hitObject.uuid)) : null;
@@ -1077,6 +1117,69 @@ export function createWorld(options: WorldOptions): WorldController {
     options.positionLabel(id, (ex * 0.5 + 0.5) * canvas.clientWidth, (-ey * 0.5 + 0.5) * canvas.clientHeight, true, { angle: Math.atan2(-dy, dx) });
   };
 
+  const updateMeteor = (delta: number) => {
+    if (meteorCaught > 0) {
+      // Caught: it flares and fades.
+      meteorCaught -= delta * 1.6;
+      const flare = Math.max(meteorCaught, 0);
+      meteorHead.material.opacity = flare;
+      meteorHalo.material.opacity = flare * 0.5;
+      meteorTrail.material.opacity = flare * 0.8;
+      meteorHalo.scale.setScalar(26 + (1 - flare) * 40);
+      if (meteorCaught <= 0) {
+        meteorLife = 0;
+        meteor.visible = false;
+        nextMeteorAt = elapsed + 25 + Math.random() * 25;
+      }
+      return;
+    }
+
+    const busy = frozen || inside || flying;
+    if (meteorLife <= 0) {
+      if (!busy && elapsed > nextMeteorAt) {
+        // Start off to one side of where she is looking, a little above the horizon.
+        const side = Math.random() < 0.5 ? -1 : 1;
+        const yaw = pose.yaw + side * 0.55;
+        const pitch = pose.pitch + 0.12 + Math.random() * 0.2;
+        meteorStart.set(
+          pose.x - Math.sin(yaw) * Math.cos(pitch) * 105,
+          pose.y + Math.sin(pitch) * 105,
+          pose.z - Math.cos(yaw) * Math.cos(pitch) * 105,
+        );
+        // Drift across her view (right-to-left or left-to-right) and slightly down.
+        meteorVelocity.set(Math.cos(yaw), -0.07, -Math.sin(yaw)).multiplyScalar((side * 1.1 * 105) / METEOR_SECONDS);
+        meteorTrail.material.rotation = 0;
+        meteor.position.copy(meteorStart);
+        meteorLife = 1;
+        meteor.visible = true;
+        meteorTrail.scale.x = 70;
+        meteorTrail.center.set(side < 0 ? 0 : 1, 0.5);
+      }
+      return;
+    }
+
+    if (busy) {
+      // She went somewhere else - let it slip away quietly.
+      meteorLife = 0;
+      meteor.visible = false;
+      nextMeteorAt = elapsed + 12;
+      return;
+    }
+
+    meteorLife -= delta / METEOR_SECONDS;
+    meteor.position.addScaledVector(meteorVelocity, delta);
+    const fade = Math.min(meteorLife * 5, 1) * Math.min((1 - meteorLife) * 6, 1);
+    const twinkle = 0.85 + Math.sin(elapsed * 14) * 0.15;
+    meteorHead.material.opacity = fade * twinkle;
+    meteorHalo.material.opacity = fade * 0.5 * twinkle;
+    meteorTrail.material.opacity = fade * 0.8;
+    meteorHalo.scale.setScalar(26);
+    if (meteorLife <= 0) {
+      meteor.visible = false;
+      nextMeteorAt = elapsed + 20 + Math.random() * 25;
+    }
+  };
+
   const animate = () => {
     frameId = window.requestAnimationFrame(animate);
     if (paused || disposed) {
@@ -1134,24 +1237,9 @@ export function createWorld(options: WorldOptions): WorldController {
         attr.setXYZ(i, x, y, z);
       }
       attr.needsUpdate = true;
-
-      // Occasional shooting star across the far sky.
-      if (streakLife <= 0 && elapsed > nextStreakAt) {
-        streakLife = 1;
-        nextStreakAt = elapsed + 7 + Math.random() * 9;
-        streakDirection.set(Math.random() - 0.5, 0.15 + Math.random() * 0.4, Math.random() - 0.5).normalize();
-        streak.position.copy(streakDirection).multiplyScalar(420).add(tmp.set(pose.x, pose.y, pose.z));
-        streak.material.rotation = Math.random() * 0.6 - 0.9;
-      }
-      if (streakLife > 0) {
-        streakLife -= delta * 1.6;
-        streak.material.opacity = Math.max(Math.sin(Math.max(streakLife, 0) * Math.PI), 0) * 0.9;
-        streak.position.x += delta * 160;
-        streak.position.y -= delta * 55;
-      } else {
-        streak.material.opacity = 0;
-      }
     }
+
+    updateMeteor(delta);
 
     if (vr && head) {
       // The phone is the head. No camera bob in VR (it causes motion sickness).
@@ -1248,6 +1336,12 @@ export function createWorld(options: WorldOptions): WorldController {
     exitVR,
     setDockMode,
     aim: (id) => {
+      if (id === "meteor") {
+        const toMeteor = meteor.position.clone().sub(new THREE.Vector3(pose.x, pose.y, pose.z)).normalize();
+        pose.yaw = Math.atan2(-toMeteor.x, -toMeteor.z);
+        pose.pitch = Math.asin(toMeteor.y);
+        return;
+      }
       if (id === "dock") {
         const toDock = dock.position.clone().sub(new THREE.Vector3(pose.x, pose.y, pose.z)).normalize();
         pose.yaw = Math.atan2(-toDock.x, -toDock.z);
@@ -1261,6 +1355,15 @@ export function createWorld(options: WorldOptions): WorldController {
       const direction = body.group.position.clone().sub(new THREE.Vector3(pose.x, pose.y, pose.z)).normalize();
       pose.yaw = Math.atan2(-direction.x, -direction.z);
       pose.pitch = Math.asin(direction.y);
+    },
+    summonMeteor: () => {
+      nextMeteorAt = 0;
+      updateMeteor(0.001);
+      if (!meteor.visible) {
+        return null;
+      }
+      const point = meteor.position.clone().project(camera);
+      return { x: (point.x * 0.5 + 0.5) * canvas.clientWidth, y: (-point.y * 0.5 + 0.5) * canvas.clientHeight };
     },
     setPlace,
     enterInterior,

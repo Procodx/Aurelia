@@ -4519,3 +4519,55 @@ body.has-interior .revelation {
   font-size: 0.88rem;
   color: var(--muted, #cfc8e0);
 }
+
+/* A note left by a shooting star */
+.star-note {
+  position: fixed;
+  z-index: 22;
+  left: 0;
+  right: 0;
+  bottom: calc(clamp(24px, 8vh, 72px) + 76px);
+  margin: 0 auto;
+  width: min(440px, calc(100vw - 32px));
+  padding: 20px 22px;
+  border: 1px solid rgba(255, 217, 138, 0.5);
+  border-radius: 10px;
+  background: linear-gradient(145deg, rgba(10, 9, 28, 0.9), rgba(30, 24, 56, 0.85));
+  box-shadow: 0 0 50px rgba(255, 217, 138, 0.22), 0 20px 60px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(10px);
+  text-align: center;
+  color: #fff6e4;
+}
+
+.star-note p {
+  margin: 0 0 10px;
+  font-size: 0.72rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(255, 217, 138, 0.9);
+}
+
+.star-note blockquote {
+  margin: 0 0 10px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-size: 1.15rem;
+  line-height: 1.55;
+}
+
+.star-note span {
+  display: block;
+  margin-bottom: 14px;
+  color: rgba(255, 214, 140, 0.9);
+  font-family: Georgia, serif;
+}
+
+.star-note button {
+  min-height: 44px;
+  padding: 0 20px;
+  border: 1px solid rgba(255, 217, 138, 0.5);
+  border-radius: 999px;
+  background: rgba(255, 217, 138, 0.12);
+  color: #ffe9b8;
+  cursor: pointer;
+}
