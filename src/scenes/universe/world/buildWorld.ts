@@ -2,14 +2,21 @@ import * as THREE from "three";
 import { gsap } from "gsap";
 import { createGlowTexture, createPlanetTexture, createSkyTexture } from "./proceduralTextures";
 import { SUN_RADIUS, type WorldObjectDef, type WorldObjectId } from "./worldConfig";
+import { createStereoRenderer, type StereoRenderer } from "./stereoRenderer";
+import { createHeadTracker, type HeadTracker } from "./headTracking";
+import { createTextSprite, createTextTexture } from "./textSprites";
 
 export type WorldOptions = {
   canvas: HTMLCanvasElement;
   objects: WorldObjectDef[];
+  /** Display names, shown as floating 3D text in VR (DOM labels can't be seen in two eyes). */
+  names: Record<WorldObjectId, string>;
   reducedMotion: boolean;
   lowPower: boolean;
   onPick: (id: WorldObjectId) => void;
   onHover: (id: WorldObjectId | null) => void;
+  /** Gazed at the floating Return / Exit button in VR. */
+  onDock: () => void;
   /** Called every frame so DOM labels can follow their planets. */
   positionLabel: (id: WorldObjectId | "sun", x: number, y: number, visible: boolean) => void;
 };
@@ -21,8 +28,16 @@ export type WorldController = {
   flyHome: () => Promise<void>;
   dolly: (amount: number) => void;
   resetView: () => void;
+  enterVR: () => void;
+  exitVR: () => void;
+  setDockMode: (mode: "exit" | "return") => void;
+  /** Test helper: point the view straight at a world. */
+  aim: (id: WorldObjectId | "dock") => void;
 };
 
+// Everything pinned to the viewer sits at the stereo convergence distance, so
+// both eyes see it at the same spot (no double vision).
+const VR_UI_DISTANCE = 30;
 const MIN_DISTANCE = 22;
 const MAX_DISTANCE = 175;
 
@@ -137,6 +152,7 @@ export function createWorld(options: WorldOptions): WorldController {
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 2400);
   camera.rotation.order = "YXZ";
+  scene.add(camera);
 
   const disposables: { dispose: () => void }[] = [];
   const track = <T extends { dispose: () => void }>(item: T) => {
@@ -272,6 +288,7 @@ export function createWorld(options: WorldOptions): WorldController {
   const pickGeometry = track(new THREE.SphereGeometry(1, 12, 8));
   const pickMaterial = track(new THREE.MeshBasicMaterial({ visible: false }));
   const bodies: Body[] = [];
+  const vrOnlyObjects: THREE.Object3D[] = [];
 
   const addSurfaceBody = (
     def: WorldObjectDef,
@@ -393,8 +410,25 @@ export function createWorld(options: WorldOptions): WorldController {
     pick.userData.id = def.id;
     built.group.add(pick);
     scene.add(built.group);
+    // Floating name for VR (hidden otherwise).
+    const nameLabel = createTextSprite(options.names[def.id], def.radius * 6.2, { fontSize: 92, width: 1100 });
+    nameLabel.sprite.position.set(0, -def.radius * 1.75, 0);
+    nameLabel.sprite.visible = false;
+    built.group.add(nameLabel.sprite);
+    track(nameLabel.texture);
+    track(nameLabel.material);
+    vrOnlyObjects.push(nameLabel.sprite);
+
     bodies.push({ def, ...built, pick });
   }
+
+  const sunName = createTextSprite("Love", SUN_RADIUS * 3.2, { fontSize: 96, width: 700 });
+  sunName.sprite.position.set(0, -SUN_RADIUS * 1.5, 0);
+  sunName.sprite.visible = false;
+  sun.add(sunName.sprite);
+  track(sunName.texture);
+  track(sunName.material);
+  vrOnlyObjects.push(sunName.sprite);
 
   // Faint orbit rings so the structure of the system reads at a glance.
   for (const def of objects) {
@@ -425,6 +459,64 @@ export function createWorld(options: WorldOptions): WorldController {
   let streakLife = 0;
   const streakDirection = new THREE.Vector3();
 
+  // ---------- VR furniture: gaze reticle, welcome text, Return / Exit button ----------
+  const reticle = new THREE.Group();
+  reticle.position.set(0, 0, -VR_UI_DISTANCE);
+  reticle.scale.setScalar(VR_UI_DISTANCE / 4);
+  const reticleBase = new THREE.Mesh(
+    track(new THREE.RingGeometry(0.1, 0.125, 40)),
+    track(new THREE.MeshBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0.75, depthTest: false, depthWrite: false })),
+  );
+  const reticleDot = new THREE.Mesh(
+    track(new THREE.CircleGeometry(0.03, 16)),
+    track(new THREE.MeshBasicMaterial({ color: "#fff4c8", transparent: true, depthTest: false, depthWrite: false })),
+  );
+  const progressMaterial = track(new THREE.MeshBasicMaterial({ color: "#ffd27a", transparent: true, opacity: 0.95, depthTest: false, depthWrite: false, side: THREE.DoubleSide }));
+  let progressMesh: THREE.Mesh | null = null;
+  let progressStep = -1;
+  reticleBase.renderOrder = reticleDot.renderOrder = 1000;
+  reticle.add(reticleBase, reticleDot);
+  reticle.visible = false;
+  camera.add(reticle);
+
+  const setGazeProgress = (value: number) => {
+    const step = Math.round(Math.min(Math.max(value, 0), 1) * 28);
+    if (step === progressStep) {
+      return;
+    }
+    progressStep = step;
+    if (progressMesh) {
+      reticle.remove(progressMesh);
+      progressMesh.geometry.dispose();
+      progressMesh = null;
+    }
+    if (step > 0) {
+      progressMesh = new THREE.Mesh(new THREE.RingGeometry(0.15, 0.2, 40, 1, Math.PI / 2, -(step / 28) * Math.PI * 2), progressMaterial);
+      progressMesh.renderOrder = 1001;
+      reticle.add(progressMesh);
+    }
+  };
+
+  const welcome = createTextSprite("Slip your phone into the viewer", 5.2 * (VR_UI_DISTANCE / 4), { fontSize: 58 });
+  welcome.sprite.position.set(0, 0.9 * (VR_UI_DISTANCE / 4), -VR_UI_DISTANCE);
+  welcome.sprite.visible = false;
+  welcome.material.depthTest = false;
+  welcome.sprite.renderOrder = 999;
+  camera.add(welcome.sprite);
+  track(welcome.texture);
+  track(welcome.material);
+
+  const exitTexture = createTextTexture("Exit VR", { fontSize: 60, width: 640, pill: true });
+  const returnTexture = createTextTexture("Return", { fontSize: 60, width: 640, pill: true });
+  track(exitTexture.texture);
+  track(returnTexture.texture);
+  const dockMaterial = track(new THREE.MeshBasicMaterial({ map: exitTexture.texture, transparent: true, depthTest: false, depthWrite: false }));
+  const dock = new THREE.Mesh(track(new THREE.PlaneGeometry(1, 1 / exitTexture.aspect)), dockMaterial);
+  dock.scale.setScalar(3.6 * (VR_UI_DISTANCE / 4));
+  dock.renderOrder = 998;
+  dock.visible = false;
+  scene.add(dock);
+
   // ---------- Camera rig ----------
   const pose = { x: 0, y: 38, z: 98, yaw: 0, pitch: -0.37 };
   const homePose = { ...pose };
@@ -438,10 +530,38 @@ export function createWorld(options: WorldOptions): WorldController {
   let flying = false;
   let disposed = false;
 
+  // VR state
+  const vrHome = { x: 0, y: 18, z: 78, yaw: 0, pitch: -0.1 };
+  let vr = false;
+  let stereo: StereoRenderer | null = null;
+  let head: HeadTracker | null = null;
+  let vrStartedMs = 0;
+  const vrSeconds = () => (performance.now() - vrStartedMs) / 1000;
+  let vrRecentered = false;
+  let gazeId: string | null = null;
+  let gazeTime = 0;
+  let lastGazeAt = performance.now();
+  let vignette = 0;
+  const poseEuler = new THREE.Euler(0, 0, 0, "YXZ");
+  const poseQuat = new THREE.Quaternion();
+  const headQuat = new THREE.Quaternion();
+  const gazeRay = new THREE.Raycaster();
+  const screenCenter = new THREE.Vector2(0, 0);
+  const GAZE_DELAY = 5;
+  const baseHome = () => (vr ? vrHome : homePose);
+
   const applyAspect = () => {
     const width = canvas.clientWidth || window.innerWidth;
     const height = canvas.clientHeight || window.innerHeight;
     renderer.setSize(width, height, false);
+    if (vr) {
+      // Each eye gets half the screen.
+      camera.aspect = width / 2 / Math.max(height, 1);
+      camera.fov = 90;
+      camera.updateProjectionMatrix();
+      stereo?.resize();
+      return;
+    }
     camera.aspect = width / Math.max(height, 1);
     const portrait = camera.aspect < 0.85;
     camera.fov = portrait ? 74 : 60;
@@ -479,7 +599,7 @@ export function createWorld(options: WorldOptions): WorldController {
   };
 
   const dolly = (amount: number) => {
-    if (flying || frozen) {
+    if (flying || frozen || vr) {
       return;
     }
 
@@ -555,7 +675,7 @@ export function createWorld(options: WorldOptions): WorldController {
     }
 
     flying = true;
-    await tweenPose({ ...homePose }, 2.2);
+    await tweenPose({ ...baseHome() }, 2.2);
     flying = false;
     frozen = false;
   };
@@ -566,7 +686,7 @@ export function createWorld(options: WorldOptions): WorldController {
     }
 
     flying = true;
-    void tweenPose({ ...homePose }, 1.4).then(() => {
+    void tweenPose({ ...baseHome() }, 1.4).then(() => {
       flying = false;
     });
   };
@@ -589,7 +709,7 @@ export function createWorld(options: WorldOptions): WorldController {
   };
 
   const onPointerDown = (event: PointerEvent) => {
-    if (flying || frozen) {
+    if (flying || frozen || vr) {
       return;
     }
     pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
@@ -608,7 +728,7 @@ export function createWorld(options: WorldOptions): WorldController {
   const onPointerMove = (event: PointerEvent) => {
     const previous = pointers.get(event.pointerId);
     if (!previous) {
-      if (event.pointerType === "mouse" && !flying && !frozen) {
+      if (event.pointerType === "mouse" && !flying && !frozen && !vr) {
         const id = pickAt(event.clientX, event.clientY);
         if (id !== hoverId) {
           hoverId = id;
@@ -656,11 +776,14 @@ export function createWorld(options: WorldOptions): WorldController {
 
   const onWheel = (event: WheelEvent) => {
     event.preventDefault();
+    if (vr) {
+      return;
+    }
     dolly(-event.deltaY * 0.05);
   };
 
   const onTilt = (event: DeviceOrientationEvent) => {
-    if (event.gamma === null || event.beta === null || reducedMotion) {
+    if (event.gamma === null || event.beta === null || reducedMotion || vr) {
       return;
     }
     tiltYaw = -Math.max(-1, Math.min(1, event.gamma / 40)) * 0.07;
@@ -675,6 +798,112 @@ export function createWorld(options: WorldOptions): WorldController {
   canvas.addEventListener("wheel", onWheel, { passive: false });
   window.addEventListener("resize", applyAspect);
   window.addEventListener("deviceorientation", onTilt);
+
+  // ---------- VR (Google Cardboard) ----------
+  const enterVR = () => {
+    if (vr) {
+      return;
+    }
+
+    vr = true;
+    stereo = createStereoRenderer({ renderer, lowPower });
+    head = createHeadTracker();
+    camera.focus = 40;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, lowPower ? 1.25 : 1.5));
+    vrStartedMs = performance.now();
+    vrRecentered = false;
+    gazeId = null;
+    gazeTime = 0;
+    velYaw = 0;
+    velPitch = 0;
+    tiltYaw = 0;
+    tiltPitch = 0;
+
+    // Start her inside the system, level with the horizon.
+    if (!frozen) {
+      Object.assign(pose, vrHome);
+    }
+
+    reticle.visible = true;
+    welcome.sprite.visible = true;
+    welcome.material.opacity = 1;
+    dock.visible = true;
+    vrOnlyObjects.forEach((item) => (item.visible = true));
+    applyAspect();
+  };
+
+  const exitVR = () => {
+    if (!vr) {
+      return;
+    }
+
+    vr = false;
+    stereo?.dispose();
+    stereo = null;
+    head?.dispose();
+    head = null;
+    renderer.setPixelRatio(pixelRatio);
+    renderer.setRenderTarget(null);
+    camera.focus = 10;
+    reticle.visible = false;
+    welcome.sprite.visible = false;
+    dock.visible = false;
+    setGazeProgress(0);
+    vrOnlyObjects.forEach((item) => (item.visible = false));
+    frozen = false;
+    flying = false;
+    camera.quaternion.identity();
+    applyAspect();
+    Object.assign(pose, homePose);
+  };
+
+  const setDockMode = (mode: "exit" | "return") => {
+    dockMaterial.map = mode === "exit" ? exitTexture.texture : returnTexture.texture;
+    dockMaterial.needsUpdate = true;
+  };
+
+  const updateGaze = (_delta: number) => {
+    const delta = Math.min((performance.now() - lastGazeAt) / 1000, 0.3);
+    lastGazeAt = performance.now();
+    if (vrSeconds() < GAZE_DELAY || flying) {
+      gazeId = null;
+      gazeTime = 0;
+      setGazeProgress(0);
+      return;
+    }
+
+    camera.updateMatrixWorld();
+    dock.updateMatrixWorld(true);
+    gazeRay.setFromCamera(screenCenter, camera);
+    // While visiting a world, only the Return button is selectable.
+    const targets: THREE.Object3D[] = frozen ? [dock] : [...bodies.map((body) => body.pick), dock];
+    const hit = gazeRay.intersectObjects(targets, false)[0];
+    const id = hit ? (hit.object === dock ? "dock" : (hit.object.userData.id as string)) : null;
+
+    if (id !== gazeId) {
+      gazeId = id;
+      gazeTime = 0;
+      setGazeProgress(0);
+      return;
+    }
+    if (!id) {
+      return;
+    }
+
+    gazeTime += delta;
+    const needed = id === "dock" ? 1.6 : 1.3;
+    setGazeProgress(gazeTime / needed);
+    if (gazeTime >= needed) {
+      gazeTime = 0;
+      gazeId = null;
+      setGazeProgress(0);
+      if (id === "dock") {
+        options.onDock();
+      } else {
+        options.onPick(id as WorldObjectId);
+      }
+    }
+  };
 
   // ---------- Frame loop ----------
   const clock = new THREE.Clock();
@@ -767,6 +996,36 @@ export function createWorld(options: WorldOptions): WorldController {
       }
     }
 
+    if (vr && head) {
+      // The phone is the head. No camera bob in VR (it causes motion sickness).
+      camera.position.set(pose.x, pose.y, pose.z);
+      poseEuler.set(pose.pitch, pose.yaw, 0);
+      poseQuat.setFromEuler(poseEuler);
+      head.update(headQuat);
+      camera.quaternion.copy(poseQuat).multiply(headQuat);
+
+      // Re-centre once she has had time to settle into the viewer.
+      if (!vrRecentered && vrSeconds() > GAZE_DELAY - 0.4) {
+        head.recenter();
+        vrRecentered = true;
+      }
+
+      welcome.material.opacity = Math.min(Math.max((GAZE_DELAY - vrSeconds()) / 1.2, 0), 1);
+      welcome.sprite.visible = welcome.material.opacity > 0.01;
+      vignette += ((flying ? 0.6 : 0) - vignette) * Math.min(delta * 4, 1);
+
+      // The Return / Exit button hangs below her line of sight.
+      const k = VR_UI_DISTANCE / 4;
+      dock.position.set(pose.x - Math.sin(pose.yaw) * 3.8 * k, pose.y - 2.6 * k, pose.z - Math.cos(pose.yaw) * 3.8 * k);
+      dock.lookAt(camera.position);
+
+      // Names would collide with the Return button while she is visiting a world.
+      vrOnlyObjects.forEach((item) => (item.visible = !frozen));
+      updateGaze(delta);
+      stereo?.render(scene, camera, vignette);
+      return;
+    }
+
     // A tiny breathing drift so the viewer always feels suspended in space.
     const bob = reducedMotion || flying || frozen ? 0 : Math.sin(elapsed * 0.45) * 0.35;
     camera.position.set(pose.x, pose.y + bob, pose.z);
@@ -787,6 +1046,8 @@ export function createWorld(options: WorldOptions): WorldController {
     dispose: () => {
       disposed = true;
       window.cancelAnimationFrame(frameId);
+      stereo?.dispose();
+      head?.dispose();
       canvas.removeEventListener("pointerdown", onPointerDown);
       canvas.removeEventListener("pointermove", onPointerMove);
       canvas.removeEventListener("pointerup", onPointerUp);
@@ -807,5 +1068,23 @@ export function createWorld(options: WorldOptions): WorldController {
     flyHome,
     dolly,
     resetView,
+    enterVR,
+    exitVR,
+    setDockMode,
+    aim: (id) => {
+      if (id === "dock") {
+        const toDock = dock.position.clone().sub(new THREE.Vector3(pose.x, pose.y, pose.z)).normalize();
+        pose.yaw = Math.atan2(-toDock.x, -toDock.z);
+        pose.pitch = Math.asin(toDock.y);
+        return;
+      }
+      const body = bodies.find((item) => item.def.id === id);
+      if (!body) {
+        return;
+      }
+      const direction = body.group.position.clone().sub(new THREE.Vector3(pose.x, pose.y, pose.z)).normalize();
+      pose.yaw = Math.atan2(-direction.x, -direction.z);
+      pose.pitch = Math.asin(direction.y);
+    },
   };
 }

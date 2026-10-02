@@ -4124,3 +4124,43 @@ select:focus-visible,
   top: 2px;
   right: 2px;
 }
+
+/* --- Cardboard VR mode: everything is drawn inside the canvas --- */
+
+body.vr-active .universe__invitation,
+body.vr-active .universe-controls,
+body.vr-active .sound-orb,
+body.vr-active .stardust-cursor,
+body.vr-active .universe__arrival-bloom,
+body.vr-active .universe__arrival-dust {
+  display: none;
+}
+
+.universe-world.is-vr {
+  position: fixed;
+  z-index: 300;
+  background: #000;
+}
+
+.universe-world.is-vr .universe-world__labels {
+  display: none;
+}
+
+.universe-controls .universe-controls__vr {
+  min-width: 44px;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+}
+
+.universe-controls button[aria-label="Reset universe view"] {
+  min-width: 58px;
+  padding: 0 12px;
+  font-size: 0.76rem;
+}
+
+/* Short landscape screens: planets sit close together, so keep just the names. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .world-label__whisper {
+    display: none;
+  }
+}

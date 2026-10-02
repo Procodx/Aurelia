@@ -9,6 +9,10 @@ export type UniverseWorldHandle = {
   flyHome: () => Promise<void>;
   dolly: (amount: number) => void;
   resetView: () => void;
+  enterVR: () => void;
+  exitVR: () => void;
+  setDockMode: (mode: "exit" | "return") => void;
+  aim: (id: WorldObjectId | "dock") => void;
 };
 
 type UniverseWorldProps = {
@@ -17,11 +21,14 @@ type UniverseWorldProps = {
   /** Hide labels while travelling to a planet. */
   travelling: boolean;
   heartHasUnread: boolean;
+  /** True while in Google Cardboard mode (hides all DOM chrome). */
+  vr: boolean;
   onEnter: (id: WorldObjectId) => void;
+  onDock: () => void;
 };
 
 export const UniverseWorld = forwardRef<UniverseWorldHandle, UniverseWorldProps>(function UniverseWorld(
-  { labels, paused, travelling, heartHasUnread, onEnter },
+  { labels, paused, travelling, heartHasUnread, vr, onEnter, onDock },
   ref,
 ) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -29,10 +36,12 @@ export const UniverseWorld = forwardRef<UniverseWorldHandle, UniverseWorldProps>
   const labelRefs = useRef(new Map<string, HTMLElement>());
   const hoverRef = useRef<WorldObjectId | null>(null);
   const onEnterRef = useRef(onEnter);
+  const onDockRef = useRef(onDock);
 
   useEffect(() => {
     onEnterRef.current = onEnter;
-  }, [onEnter]);
+    onDockRef.current = onDock;
+  }, [onEnter, onDock]);
 
   useImperativeHandle(
     ref,
@@ -41,6 +50,10 @@ export const UniverseWorld = forwardRef<UniverseWorldHandle, UniverseWorldProps>
       flyHome: () => controllerRef.current?.flyHome() ?? Promise.resolve(),
       dolly: (amount) => controllerRef.current?.dolly(amount),
       resetView: () => controllerRef.current?.resetView(),
+      enterVR: () => controllerRef.current?.enterVR(),
+      exitVR: () => controllerRef.current?.exitVR(),
+      setDockMode: (mode) => controllerRef.current?.setDockMode(mode),
+      aim: (id) => controllerRef.current?.aim(id),
     }),
     [],
   );
@@ -54,9 +67,11 @@ export const UniverseWorld = forwardRef<UniverseWorldHandle, UniverseWorldProps>
     const controller = createWorld({
       canvas,
       objects: worldObjects,
+      names: Object.fromEntries(labels.map((label) => [label.id, label.name])) as Record<WorldObjectId, string>,
       reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
       lowPower: (navigator.hardwareConcurrency ?? 8) <= 4 || window.matchMedia("(pointer: coarse)").matches,
       onPick: (id) => onEnterRef.current(id),
+      onDock: () => onDockRef.current(),
       onHover: (id) => {
         hoverRef.current = id;
         labelRefs.current.forEach((element, key) => element.classList.toggle("is-hovered", key === id));
@@ -91,7 +106,9 @@ export const UniverseWorld = forwardRef<UniverseWorldHandle, UniverseWorldProps>
   };
 
   return (
-    <div className={travelling || paused ? "universe-world is-travelling" : "universe-world"}>
+    <div
+      className={["universe-world", travelling || paused ? "is-travelling" : "", vr ? "is-vr" : ""].filter(Boolean).join(" ")}
+    >
       <canvas ref={canvasRef} className="universe-world__canvas" aria-label="A three-dimensional universe. Drag to look around." />
       <div className="universe-world__labels">
         <div className="world-label world-label--sun" ref={setLabelRef("sun")} aria-hidden="true">

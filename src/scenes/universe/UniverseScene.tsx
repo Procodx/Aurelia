@@ -4,6 +4,7 @@ import { SkyLoader } from "../../components/SkyLoader";
 import { fetchLetters } from "../../features/heart/heartLetters";
 import { getStoredIdentity } from "../../features/gate/VisitorIdentity";
 import { useExperienceStore } from "../../store/experienceStore";
+import { requestTiltPermission } from "../../utils/deviceTilt";
 import { UniverseWorld, type UniverseWorldHandle } from "./world/UniverseWorld";
 
 // Each planet panel is its own chunk, so the first paint of the universe
@@ -118,6 +119,107 @@ export function UniverseScene() {
   const [transitioningObjectId, setTransitioningObjectId] = useState<CelestialObject["id"] | null>(null);
   const previousActiveRef = useRef(activeObjectId);
 
+  // Google Cardboard mode.
+  const [vr, setVr] = useState(false);
+  const [vrVisiting, setVrVisiting] = useState<CelestialObject["id"] | null>(null);
+  const vrFullscreenRef = useRef(false);
+  const wakeLockRef = useRef<{ release: () => Promise<void> } | null>(null);
+
+  useEffect(() => {
+    document.body.classList.toggle("vr-active", vr);
+    return () => document.body.classList.remove("vr-active");
+  }, [vr]);
+
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      (window as unknown as { __world?: UniverseWorldHandle | null }).__world = worldRef.current;
+    }
+  });
+
+  const startVR = async () => {
+    if (vr) {
+      return;
+    }
+
+    // All of these need to happen inside the tap that started VR.
+    await requestTiltPermission();
+    try {
+      await document.documentElement.requestFullscreen?.({ navigationUI: "hide" });
+      vrFullscreenRef.current = Boolean(document.fullscreenElement);
+    } catch {
+      vrFullscreenRef.current = false;
+    }
+    try {
+      await (screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> }).lock?.("landscape");
+    } catch {
+      // Not supported everywhere (iPhone) - the viewer is held sideways anyway.
+    }
+    try {
+      wakeLockRef.current = (await (navigator as Navigator & { wakeLock?: { request: (t: string) => Promise<{ release: () => Promise<void> }> } }).wakeLock?.request("screen")) ?? null;
+    } catch {
+      wakeLockRef.current = null;
+    }
+
+    worldRef.current?.setDockMode("exit");
+    worldRef.current?.enterVR();
+    setVrVisiting(null);
+    setVr(true);
+  };
+
+  const stopVR = () => {
+    worldRef.current?.exitVR();
+    setVr(false);
+    setVrVisiting(null);
+    if (document.fullscreenElement) {
+      void document.exitFullscreen().catch(() => undefined);
+    }
+    vrFullscreenRef.current = false;
+    try {
+      (screen.orientation as ScreenOrientation & { unlock?: () => void }).unlock?.();
+    } catch {
+      // ignore
+    }
+    void wakeLockRef.current?.release().catch(() => undefined);
+    wakeLockRef.current = null;
+  };
+
+  // Leaving fullscreen (system back gesture, Escape) also leaves VR.
+  useEffect(() => {
+    if (!vr) {
+      return;
+    }
+
+    const handleFullscreen = () => {
+      if (vrFullscreenRef.current && !document.fullscreenElement) {
+        stopVR();
+      }
+    };
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        stopVR();
+      }
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreen);
+    window.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreen);
+      window.removeEventListener("keydown", handleKey);
+    };
+    // stopVR only touches refs and setters, so it is safe to omit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vr]);
+
+  const handleDock = () => {
+    if (vrVisiting) {
+      setVrVisiting(null);
+      worldRef.current?.setDockMode("exit");
+      void worldRef.current?.flyHome();
+      return;
+    }
+    stopVR();
+  };
+
   // Escape closes whichever planet panel is open (keyboard / tablet keyboards).
   useEffect(() => {
     if (!activeObjectId) {
@@ -143,6 +245,18 @@ export function UniverseScene() {
   }, [activeObjectId]);
 
   const enterObject = async (id: CelestialObject["id"]) => {
+    if (vr) {
+      // In VR a world is visited in place: fly there and hover. The full
+      // panels are flat web pages that cannot be shown to two eyes yet.
+      if (vrVisiting) {
+        return;
+      }
+      setVrVisiting(id);
+      worldRef.current?.setDockMode("return");
+      await worldRef.current?.flyTo(id);
+      return;
+    }
+
     if (transitioningObjectId || activeObjectId) {
       return;
     }
@@ -167,7 +281,9 @@ export function UniverseScene() {
         paused={activeObjectId !== null && transitioningObjectId === null}
         travelling={transitioningObjectId !== null}
         heartHasUnread={heartChamberHasUnread}
+        vr={vr}
         onEnter={(id) => void enterObject(id)}
+        onDock={handleDock}
       />
       <motion.div
         className="universe__arrival-bloom"
@@ -201,6 +317,15 @@ export function UniverseScene() {
         </button>
         <button type="button" onClick={() => worldRef.current?.resetView()} aria-label="Reset universe view">
           reset
+        </button>
+        <button
+          type="button"
+          className="universe-controls__vr"
+          onClick={() => void startVR()}
+          aria-label="Enter Google Cardboard VR mode"
+          title="Cardboard VR"
+        >
+          VR
         </button>
       </div>
 
