@@ -1,16 +1,24 @@
-import { type CSSProperties, type PointerEvent, type WheelEvent, useEffect, useRef, useState } from "react";
+import { type CSSProperties, type PointerEvent, type WheelEvent, lazy, Suspense, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useMotionValue } from "framer-motion";
 import gsap from "gsap";
 import { playPlanetEnter } from "../../animations/planetEnter";
 import { ThreeStarfield } from "../../components/ThreeStarfield";
-import { BloomingPlanet } from "../../features/blooming/BloomingPlanet";
-import { EchoMoon } from "../../features/echo/EchoMoon";
-import { HeartChamber } from "../../features/heart/HeartChamber";
+import { SkyLoader } from "../../components/SkyLoader";
 import { fetchLetters } from "../../features/heart/heartLetters";
 import { getStoredIdentity } from "../../features/gate/VisitorIdentity";
 import { MemoryConstellation } from "../../features/memories/MemoryConstellation";
-import { MemoryTimeline } from "../../features/memories/MemoryTimeline";
 import { useExperienceStore } from "../../store/experienceStore";
+
+// Each planet panel is its own chunk, so the first paint of the universe
+// doesn't download the music player, puzzles, 3D star map and so on.
+const loadBlooming = () => import("../../features/blooming/BloomingPlanet");
+const loadEcho = () => import("../../features/echo/EchoMoon");
+const loadHeart = () => import("../../features/heart/HeartChamber");
+const loadTimeline = () => import("../../features/memories/MemoryTimeline");
+const BloomingPlanet = lazy(() => loadBlooming().then((m) => ({ default: m.BloomingPlanet })));
+const EchoMoon = lazy(() => loadEcho().then((m) => ({ default: m.EchoMoon })));
+const HeartChamber = lazy(() => loadHeart().then((m) => ({ default: m.HeartChamber })));
+const MemoryTimeline = lazy(() => loadTimeline().then((m) => ({ default: m.MemoryTimeline })));
 
 type CelestialObject = {
   id: "memory-constellation" | "garden-planet" | "echo-moon" | "heart-chamber" | "future-stars";
@@ -195,6 +203,24 @@ export function UniverseScene() {
   // re-rendered the whole scene (all 5 planets, the SVG orbit rings, etc.) —
   // that was the main source of the lag while panning the sky.
   const zoomMV = useMotionValue(getViewSettings().defaultZoom);
+
+  // Warm the panel chunks once the sky has settled, so tapping a planet
+  // opens instantly. Skipped on data-saver connections.
+  useEffect(() => {
+    const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
+    if (connection?.saveData) {
+      return;
+    }
+
+    const warm = () => void Promise.all([loadBlooming(), loadEcho(), loadHeart(), loadTimeline()]);
+    if (typeof window.requestIdleCallback === "function") {
+      const id = window.requestIdleCallback(warm, { timeout: 6000 });
+      return () => window.cancelIdleCallback(id);
+    }
+
+    const id = window.setTimeout(warm, 3000);
+    return () => window.clearTimeout(id);
+  }, []);
   const panX = useMotionValue(0);
   const panY = useMotionValue(0);
   const [transitioningObjectId, setTransitioningObjectId] = useState<CelestialObject["id"] | null>(null);
@@ -541,10 +567,26 @@ export function UniverseScene() {
       </motion.div>
 
       <AnimatePresence>
-        {activeObject?.id === "memory-constellation" && <MemoryTimeline onClose={clearFocus} />}
-        {activeObject?.id === "garden-planet" && <BloomingPlanet onClose={clearFocus} />}
-        {activeObject?.id === "echo-moon" && <EchoMoon onClose={clearFocus} />}
-        {activeObject?.id === "heart-chamber" && <HeartChamber onClose={clearFocus} />}
+        {activeObject?.id === "memory-constellation" && (
+          <Suspense key="memory-constellation" fallback={<SkyLoader inline />}>
+            <MemoryTimeline onClose={clearFocus} />
+          </Suspense>
+        )}
+        {activeObject?.id === "garden-planet" && (
+          <Suspense key="garden-planet" fallback={<SkyLoader inline />}>
+            <BloomingPlanet onClose={clearFocus} />
+          </Suspense>
+        )}
+        {activeObject?.id === "echo-moon" && (
+          <Suspense key="echo-moon" fallback={<SkyLoader inline />}>
+            <EchoMoon onClose={clearFocus} />
+          </Suspense>
+        )}
+        {activeObject?.id === "heart-chamber" && (
+          <Suspense key="heart-chamber" fallback={<SkyLoader inline />}>
+            <HeartChamber onClose={clearFocus} />
+          </Suspense>
+        )}
 
         {activeObject &&
           activeObject.id !== "memory-constellation" &&

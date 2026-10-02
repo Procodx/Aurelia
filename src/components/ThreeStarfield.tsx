@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
+import { useMediaQuery } from "../utils/useMediaQuery";
 
 type ThreeStarfieldProps = {
   density?: number;
@@ -25,6 +26,7 @@ export function ThreeStarfield({
 }: ThreeStarfieldProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const pausedRef = useRef(paused);
+  const isNarrowViewport = useMediaQuery("(max-width: 760px)");
 
   useEffect(() => {
     pausedRef.current = paused;
@@ -52,7 +54,6 @@ export function ThreeStarfield({
     // laptop GPU, so give it fewer particles and a lower pixel ratio cap
     // instead of the same fixed cost for every visitor.
     const isLowPower = (navigator.hardwareConcurrency ?? 8) <= 4;
-    const isNarrowViewport = window.matchMedia("(max-width: 760px)").matches;
     const isConstrained = isLowPower || isNarrowViewport;
     const effectiveDensity = isConstrained ? Math.round(density * 0.55) : density;
     const maxPixelRatio = intensity === "awake" ? (isConstrained ? 1 : 1.25) : isConstrained ? 1.15 : 1.5;
@@ -164,7 +165,7 @@ export function ThreeStarfield({
       material.dispose();
       renderer.dispose();
     };
-  }, [density, depth, intensity]);
+  }, [density, depth, intensity, isNarrowViewport]);
 
   return <canvas ref={canvasRef} className={className ?? "three-starfield"} aria-hidden="true" />;
 }

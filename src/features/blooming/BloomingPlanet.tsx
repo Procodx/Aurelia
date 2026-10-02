@@ -152,7 +152,7 @@ export function BloomingPlanet({ onClose }: BloomingPlanetProps) {
                 type="button"
                 onClick={() => setActiveId(compliment.id)}
               >
-                <img src={compliment.source} alt="" />
+                <img src={compliment.source} alt="" loading="lazy" decoding="async" />
                 <span>{reflection.eyebrow}</span>
                 <strong>{reflection.title}</strong>
               </button>

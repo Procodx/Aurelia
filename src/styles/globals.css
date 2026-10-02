@@ -3802,3 +3802,48 @@ button {
 .heart-compose__status.is-error {
   color: var(--rose);
 }
+.sky-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 18px;
+  background: var(--night);
+  color: rgba(255, 248, 234, 0.7);
+  animation: sky-loader-in 900ms ease both;
+}
+
+.sky-loader--inline {
+  background: rgba(2, 3, 10, 0.72);
+  backdrop-filter: blur(6px);
+}
+
+.sky-loader p {
+  margin: 0;
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+}
+
+.sky-loader__star {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff4c8;
+  box-shadow: 0 0 22px 6px rgba(255, 215, 132, 0.55);
+  animation: sky-loader-pulse 2.2s ease-in-out infinite;
+}
+
+@keyframes sky-loader-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes sky-loader-pulse {
+  50% {
+    transform: scale(1.5);
+    opacity: 0.7;
+  }
+}

@@ -1,11 +1,15 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useRef } from "react";
+import { lazy, Suspense, useEffect, useRef } from "react";
 import { LandingScene } from "../scenes/landing/LandingScene";
-import { UniverseScene } from "../scenes/universe/UniverseScene";
+import { SkyLoader } from "../components/SkyLoader";
 import { StardustCursor } from "../features/easter-eggs/StardustCursor";
 import { useAmbientSound } from "../audio/useAmbientSound";
 import { useExperienceStore } from "../store/experienceStore";
 import { requestTiltPermission } from "../utils/deviceTilt";
+
+const UniverseScene = lazy(() =>
+  import("../scenes/universe/UniverseScene").then((m) => ({ default: m.UniverseScene })),
+);
 
 export default function App() {
   const scene = useExperienceStore((state) => state.scene);
@@ -76,7 +80,9 @@ export default function App() {
         {scene === "landing" ? (
           <LandingScene key="landing" onEnter={handleEnter} />
         ) : (
-          <UniverseScene key="universe" />
+          <Suspense key="universe" fallback={<SkyLoader />}>
+            <UniverseScene />
+          </Suspense>
         )}
       </AnimatePresence>
 
