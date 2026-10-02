@@ -43,7 +43,7 @@ export function createGardenInterior(context: InteriorContext): Interior {
   const base = createInteriorBase({
     ...context,
     sky: { band: "#7a54b8", warm: "#ffb4b0", cool: "#2d3c92", cloud: "#ff8cc0", base: [8, 6, 24], strength: 0.9 },
-    fog: { color: "#150f33", density: 0.0026 },
+    fog: { color: "#1e1646", density: 0.0024 },
     hemisphere: { sky: "#c8b4ff", ground: "#12302c", intensity: 1.25 },
   });
   const { scene, glow } = base;
@@ -53,7 +53,7 @@ export function createGardenInterior(context: InteriorContext): Interior {
       500,
       createTerrainTexture(context.lowPower ? 320 : 512, (n, detail) => {
         const glowPatch = Math.max(detail - 0.62, 0) * 5;
-        return [14 + n * 26 + glowPatch * 90, 40 + n * 70 + glowPatch * 120, 44 + n * 50 + glowPatch * 70];
+        return [22 + n * 40 + glowPatch * 110, 62 + n * 100 + glowPatch * 140, 66 + n * 70 + glowPatch * 90];
       }, 3),
       { roughness: 1 },
     ),
@@ -71,7 +71,7 @@ export function createGardenInterior(context: InteriorContext): Interior {
   const stemGeometry = new THREE.CylinderGeometry(0.35, 0.6, 1, 6);
   stemGeometry.translate(0, 0.5, 0);
   const stemMaterial = new THREE.MeshStandardMaterial({ color: "#2f7a62", emissive: "#14503f", emissiveIntensity: 0.6, roughness: 0.8 });
-  const flowerCount = context.lowPower ? 38 : 70;
+  const flowerCount = context.lowPower ? 64 : 120;
   const stems = new THREE.InstancedMesh(stemGeometry, stemMaterial, flowerCount);
   scene.add(stems);
 
@@ -83,8 +83,8 @@ export function createGardenInterior(context: InteriorContext): Interior {
   for (let i = 0; i < flowerCount; i += 1) {
     const angle = Math.random() * Math.PI * 2;
     // Leave a clearing around her for the things she looks at.
-    const distance = 30 + Math.pow(Math.random(), 0.8) * 130;
-    const height = 7 + Math.random() * 20;
+    const distance = 26 + Math.pow(Math.random(), 1.5) * 130;
+    const height = 6 + Math.random() * 22;
     const x = Math.cos(angle) * distance;
     const z = Math.sin(angle) * distance;
     matrix.compose(new THREE.Vector3(x, 0, z), new THREE.Quaternion(), new THREE.Vector3(1, height, 1));

@@ -26,6 +26,28 @@ export function createEchoInterior(context: InteriorContext): Interior {
     ),
   );
 
+  // Craters scattered across the near ground: dark bowls with pale rims.
+  const bowlMaterial = new THREE.MeshBasicMaterial({ color: "#14182e", transparent: true, opacity: 0.6, depthWrite: false, fog: false });
+  const rimMaterial = new THREE.MeshBasicMaterial({ color: "#6a7298", transparent: true, opacity: 0.5, depthWrite: false, fog: false, side: THREE.DoubleSide });
+  for (let i = 0; i < (context.lowPower ? 22 : 40); i += 1) {
+    const angle = Math.random() * Math.PI * 2;
+    const distance = 22 + Math.random() * 190;
+    const x = Math.cos(angle) * distance;
+    const z = Math.sin(angle) * distance;
+    // Keep the stage area and the spot she lands on clear.
+    if (Math.hypot(x, z + 52) < 40) {
+      continue;
+    }
+    const radius = 4 + Math.random() * 16;
+    const bowl = new THREE.Mesh(new THREE.CircleGeometry(radius, 28), bowlMaterial);
+    const rim = new THREE.Mesh(new THREE.RingGeometry(radius, radius * 1.18, 28), rimMaterial);
+    for (const part of [bowl, rim]) {
+      part.rotation.x = -Math.PI / 2;
+      part.position.set(x, 0.06, z);
+      scene.add(part);
+    }
+  }
+
   const sunLight = new THREE.DirectionalLight("#fff0da", 1.5);
   sunLight.position.set(-120, 90, -60);
   scene.add(sunLight);
