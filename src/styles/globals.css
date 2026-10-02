@@ -4026,3 +4026,207 @@ select:focus-visible,
     min-height: auto;
   }
 }
+
+/* --- Real 3D universe --- */
+
+.universe-world {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  transition: opacity 600ms ease;
+}
+
+.universe-world__canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+  outline: none;
+}
+
+.universe-world__labels {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.world-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  width: max-content;
+  max-width: min(220px, 46vw);
+  padding: 8px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  text-align: center;
+  cursor: pointer;
+  pointer-events: auto;
+  will-change: transform;
+  visibility: hidden;
+  transition: opacity 500ms ease;
+}
+
+.world-label--sun {
+  pointer-events: none;
+  cursor: default;
+}
+
+.world-label__name {
+  font-family: var(--font-display);
+  font-size: clamp(1.02rem, 1.7vw, 1.45rem);
+  line-height: 1.1;
+  text-shadow: 0 0 18px rgba(255, 248, 234, 0.35), 0 0 34px rgba(143, 214, 255, 0.2), 0 1px 3px rgba(0, 0, 0, 0.7);
+}
+
+.world-label--sun .world-label__name {
+  color: rgba(255, 244, 214, 0.78);
+  font-size: 1.15rem;
+  letter-spacing: 0.14em;
+}
+
+.world-label__whisper {
+  display: block;
+  color: rgba(255, 248, 234, 0.8);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+  opacity: 0;
+  transition: opacity 600ms ease;
+}
+
+.world-label:focus-visible .world-label__whisper,
+.world-label.is-hovered .world-label__whisper {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .world-label__whisper {
+    opacity: 0.6;
+    font-size: 0.72rem;
+  }
+}
+
+.universe-world.is-travelling .world-label {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.world-label .celestial__unread-badge {
+  top: 2px;
+  right: 2px;
+}
+
+/* --- Cardboard VR mode: everything is drawn inside the canvas --- */
+
+body.vr-active .universe__invitation,
+body.vr-active .universe-controls,
+body.vr-active .sound-orb,
+body.vr-active .stardust-cursor,
+body.vr-active .universe__arrival-bloom,
+body.vr-active .universe__arrival-dust {
+  display: none;
+}
+
+.universe-world.is-vr {
+  position: fixed;
+  z-index: 300;
+  background: #000;
+}
+
+.universe-world.is-vr .universe-world__labels {
+  display: none;
+}
+
+.universe-controls .universe-controls__vr {
+  min-width: 44px;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+}
+
+.universe-controls button[aria-label="Reset universe view"] {
+  min-width: 58px;
+  padding: 0 12px;
+  font-size: 0.76rem;
+}
+
+/* Short landscape screens: planets sit close together, so keep just the names. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .world-label__whisper {
+    display: none;
+  }
+}
+
+/* --- Standing inside a world: panels become glass over the world --- */
+
+body.has-interior .heart-chamber,
+body.has-interior .blooming-planet,
+body.has-interior .memory-timeline,
+body.has-interior .echo-moon-panel,
+body.has-interior .revelation {
+  background: linear-gradient(145deg, rgba(5, 5, 16, 0.52), rgba(18, 12, 32, 0.44));
+  backdrop-filter: blur(5px);
+}
+
+/* A clearer VR button. */
+.universe-controls .universe-controls__vr {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 72px;
+  padding: 0 14px;
+  border-color: rgba(255, 215, 132, 0.55);
+  color: #ffe9b8;
+  background: rgba(255, 215, 132, 0.12);
+}
+
+/* Once she is diving into or standing inside a world, the universe's own hints go away. */
+.universe.is-inside .universe__invitation,
+.universe.is-inside .universe-controls {
+  opacity: 0 !important;
+  pointer-events: none;
+  transition: opacity 500ms ease;
+}
+
+/* --- Worlds that are off-screen: a glowing marker on the edge points the way --- */
+
+.world-label.is-edge {
+  max-width: 170px;
+  padding: 6px 10px;
+  gap: 0;
+  opacity: 0.88;
+}
+
+.world-label.is-edge .world-label__whisper {
+  display: none;
+}
+
+.world-label.is-edge .world-label__name {
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+/* The arrow orbits the label, always on the side facing the world. */
+.world-label.is-edge::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  margin: -6px 0 0 -5px;
+  border-style: solid;
+  border-width: 6px 0 6px 11px;
+  border-color: transparent transparent transparent rgba(255, 215, 132, 0.95);
+  filter: drop-shadow(0 0 6px rgba(255, 215, 132, 0.8));
+  transform: rotate(var(--edge-angle, 0rad)) translateX(var(--edge-radius, 62px));
+}
