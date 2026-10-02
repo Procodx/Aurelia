@@ -50,24 +50,24 @@ function toItem(compliment: ComplimentImage, index: number): GalleryItem {
     pageCount: 2,
     paintCard: (ctx) => {
       // A soft dark halo keeps the flower readable against the bright planet behind it.
-      const halo = ctx.createRadialGradient(CARD_W / 2, 190, 20, CARD_W / 2, 190, 300);
+      const halo = ctx.createRadialGradient(CARD_W / 2, 150, 20, CARD_W / 2, 150, 290);
       halo.addColorStop(0, "rgba(12, 8, 34, 0.7)");
       halo.addColorStop(0.65, "rgba(12, 8, 34, 0.45)");
       halo.addColorStop(1, "rgba(12, 8, 34, 0)");
       ctx.fillStyle = halo;
       ctx.fillRect(0, 0, CARD_W, CARD_H);
-      drawFlower(ctx, CARD_W / 2, 170, 150, bloom.petal, bloom.core);
+      drawFlower(ctx, CARD_W / 2, 150, 122, bloom.petal, bloom.core);
       ctx.textAlign = "center";
       ctx.shadowColor = "rgba(0, 0, 0, 0.9)";
       ctx.shadowBlur = 10;
       ctx.fillStyle = bloom.core;
-      ctx.font = '600 26px Georgia, serif';
-      ctx.fillText(reflection.eyebrow.toUpperCase(), CARD_W / 2, CARD_H - 88);
+      ctx.font = '600 32px Georgia, serif';
+      ctx.fillText(reflection.eyebrow.toUpperCase(), CARD_W / 2, 322);
       ctx.fillStyle = "#fff6e4";
-      ctx.font = '36px Georgia, "Times New Roman", serif';
-      wrapLines(ctx, reflection.title, 560)
+      ctx.font = '44px Georgia, "Times New Roman", serif';
+      wrapLines(ctx, reflection.title, 600)
         .slice(0, 2)
-        .forEach((line, row) => ctx.fillText(line, CARD_W / 2, CARD_H - 46 + row * 40 - (wrapLines(ctx, reflection.title, 560).length > 1 ? 22 : 0)));
+        .forEach((line, row) => ctx.fillText(line, CARD_W / 2, 374 + row * 50));
       ctx.shadowBlur = 0;
     },
     paintPage: async (pageIndex, ctx, width, height) => {

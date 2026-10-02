@@ -118,7 +118,8 @@ export function createKit(viewpoint: Viewpoint) {
    */
   const around = (angle: number, radius: number, dy = 0) => {
     const pitch = viewpoint.pitch + Math.atan2(dy, radius);
-    const yaw = viewpoint.yaw + angle;
+    // Looking steeply down squeezes horizontal spacing, so widen it to match.
+    const yaw = viewpoint.yaw + angle / Math.max(Math.cos(pitch), 0.4);
     return new THREE.Vector3(
       origin.x - Math.sin(yaw) * Math.cos(pitch) * radius,
       origin.y + Math.sin(pitch) * radius,
